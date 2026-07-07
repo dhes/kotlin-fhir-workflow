@@ -1,5 +1,6 @@
 package dev.ohs.fhir.workflow.activity.resource.event
 
+import dev.ohs.fhir.model.r4.Boolean as FhirBoolean
 import dev.ohs.fhir.model.r4.Code
 import dev.ohs.fhir.model.r4.CodeableConcept
 import dev.ohs.fhir.model.r4.Coding
@@ -48,18 +49,33 @@ class CPGMedicationDispenseEvent(resource: MedicationDispense) :
           context = src.encounter,
           note = src.note,
           dosageInstruction = src.dosageInstruction,
+          substitution = src.substitution?.let { substitution ->
+            MedicationDispense.Substitution(
+              id = substitution.id,
+              extension = substitution.extension,
+              modifierExtension = substitution.modifierExtension,
+              // MedicationRequest.substitution.allowed records whether substitution is
+              // *permitted* (as a Boolean or a CodeableConcept), whereas
+              // MedicationDispense.substitution.wasSubstituted records whether a substitution
+              // *actually occurred* (a plain Boolean). These are different facts and there is no
+              // way to derive the latter at dispense-creation time, so we carry over the allowed
+              // flag as a best-effort default, falling back to false when allowed was expressed
+              // as a CodeableConcept (no boolean value to convert).
+              wasSubstituted = substitution.allowed.asBoolean()?.value ?: FhirBoolean(value = false),
+              reason = substitution.reason?.let { listOf(it) } ?: listOf(),
+            )
+          },
+          detectedIssue = src.detectedIssue,
+          eventHistory = src.eventHistory,
         ),
       )
     }
 
-    // MedicationDispense.medication is required (1..1); fall back to an empty CodeableConcept
-    // when the source request has none so the resulting resource stays valid.
     private fun medReqToDispenseMedication(
-      medication: MedicationRequest.Medication?,
+      medication: MedicationRequest.Medication,
     ): MedicationDispense.Medication = when (medication) {
       is MedicationRequest.Medication.CodeableConcept -> MedicationDispense.Medication.CodeableConcept(medication.value)
       is MedicationRequest.Medication.Reference -> MedicationDispense.Medication.Reference(medication.value)
-      null -> MedicationDispense.Medication.CodeableConcept(CodeableConcept())
     }
   }
 }
