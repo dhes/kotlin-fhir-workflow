@@ -2,8 +2,10 @@ package dev.ohs.fhir.workflow.activity
 
 import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
+import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.workflow.activity.phase.request.ProposalPhase
 import dev.ohs.fhir.workflow.activity.resource.request.CPGCommunicationRequest
+import dev.ohs.fhir.workflow.activity.resource.request.CPGTaskRequest
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -23,5 +25,21 @@ class ActivityFlowTest {
     val flow = ActivityFlow.of(repo, request)
     flow.getCurrentPhase().shouldBeInstanceOf<ProposalPhase<*>>()
     assertTrue(flow.preparePlan().isSuccess)
+  }
+
+  @Test
+  fun `task request flow starts in the proposal phase`() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val taskRequest = CPGTaskRequest(
+      Task(
+        id = "task-1",
+        status = Enumeration(value = Task.TaskStatus.Requested),
+        intent = Enumeration(value = Task.TaskIntent.Proposal),
+      ),
+    ).apply { setIntent(Intent.PROPOSAL) }
+    repo.create(taskRequest.resource)
+
+    val flow = ActivityFlow.of(repo, taskRequest)
+    flow.getCurrentPhase().shouldBeInstanceOf<ProposalPhase<*>>()
   }
 }
