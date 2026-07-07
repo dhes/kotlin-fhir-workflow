@@ -30,7 +30,7 @@ abstract class BaseRequestPhase<R : CPGRequestResource<*>>(
   }
 
   override suspend fun update(r: R): Result<Unit> = runCatching {
-    require(r.getStatus() in listOf(Status.DRAFT, Status.ACTIVE)) { "Status is ${r.getStatusCode()}" }
+    require(r.getStatus() in AllowedStatusForPhaseStart) { "Status is ${r.getStatusCode()}" }
     repository.update(r.resource)
     request = r
   }
