@@ -1,0 +1,21 @@
+[versions]
+kotlin = "2.3.21"
+android-gradle-plugin = "8.13.0"
+ohs-fhir-model = "1.0.0-beta05"
+ohs-fhir-path = "1.0.0-beta03"
+kotlinx-coroutines = "1.10.2"
+kotlinx-datetime = "0.6.2"
+kotest = "6.2.0"
+
+[libraries]
+ohs-fhir-model = { module = "dev.ohs.fhir:fhir-model", version.ref = "ohs-fhir-model" }
+ohs-fhir-path = { module = "dev.ohs.fhir:fhir-path", version.ref = "ohs-fhir-path" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "android-gradle-plugin" }

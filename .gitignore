@@ -1,0 +1,22 @@
+# Local-only working docs (specs, plans) — not tracked
+docs/superpowers/
+
+# Gradle / build
+.gradle/
+build/
+**/build/
+!src/**/build/
+captures/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.kotlin/
+
+# Local config & secrets
+local.properties
+
+# OS
+.DS_Store
