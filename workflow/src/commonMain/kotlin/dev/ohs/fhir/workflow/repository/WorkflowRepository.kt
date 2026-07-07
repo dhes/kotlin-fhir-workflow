@@ -1,0 +1,24 @@
+package dev.ohs.fhir.workflow.repository
+
+import dev.ohs.fhir.model.r4.Resource
+
+/**
+ * Persistence abstraction for the workflow library. The consumer supplies an
+ * implementation over dev.ohs.fhir:fhir-engine; tests use InMemoryWorkflowRepository.
+ * Replaces the cqframework org.opencds.cqf.fhir.api.Repository.
+ */
+interface WorkflowRepository {
+  /** @param type resource type name, e.g. "CommunicationRequest". */
+  suspend fun read(type: String, id: String): Resource?
+
+  /** @return the logical id of the created resource. */
+  suspend fun create(resource: Resource): String
+
+  suspend fun update(resource: Resource)
+
+  /** Search a resource type by a reference search param, e.g. type="Immunization", param="patient", referenceValue="Patient/p1". */
+  suspend fun searchByReferenceParam(type: String, param: String, referenceValue: String): List<Resource>
+
+  /** Search a resource type by a uri/canonical search param, e.g. type="PlanDefinition", param="url". */
+  suspend fun searchByUri(type: String, param: String, uri: String): List<Resource>
+}
