@@ -11,6 +11,7 @@ import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
 import dev.ohs.fhir.workflow.knowledge.CanonicalResolver
+import dev.ohs.fhir.workflow.resourceTypeName
 
 /**
  * FHIRPath-based `PlanDefinition/$apply`. Composes an [ExpressionEvaluator] to check
@@ -27,7 +28,11 @@ class PlanDefinitionProcessor(
     val groupActions = mutableListOf<RequestGroup.Action>()
 
     for (action in planDefinition.action) {
-      // relatedAction: skip if a prerequisite action wasn't applicable this run.
+      // relatedAction: skip if a prerequisite action wasn't applicable this run. This is an
+      // order-sensitive, relationship-agnostic gate: it only sees prerequisites declared
+      // earlier in `action` and ignores the actual relationship semantics (before/after/etc.).
+      // A prerequisite declared after its dependent is silently treated as unmet. Full
+      // relatedAction semantics are a follow-up.
       val prerequisitesMet = action.relatedAction.all { rel ->
         applicableActionIds.contains(rel.actionId.value)
       }
@@ -59,8 +64,10 @@ class PlanDefinitionProcessor(
       intent = Enumeration(value = CarePlan.CarePlanIntent.Plan),
       subject = subjectReference(context),
       contained = listOf(requestGroup),
-      activity = groupActions.map {
-        CarePlan.Activity(reference = Reference(reference = FhirString(value = "#${requestGroup.id}")))
+      activity = if (groupActions.isEmpty()) {
+        emptyList()
+      } else {
+        listOf(CarePlan.Activity(reference = Reference(reference = FhirString(value = "#${requestGroup.id}"))))
       },
     )
   }
@@ -70,6 +77,8 @@ class PlanDefinitionProcessor(
       it.kind.value == PlanDefinition.ActionConditionKind.Applicability
     }
     if (applicabilityConditions.isEmpty()) return true
+    // A Failure or non-boolean evaluation result is treated as `false` (silent skip); surfacing
+    // eval failures to the consumer is deferred to a follow-up.
     return applicabilityConditions.all { condition ->
       val expr = condition.expression ?: return@all false
       if (expr.language.value != Expression.ExpressionLanguage.Text_Fhirpath) return@all false
@@ -85,6 +94,6 @@ class PlanDefinitionProcessor(
 
   private fun subjectReference(context: EvaluationContext): Reference {
     val id = context.subject.id ?: "unknown"
-    return Reference(reference = FhirString(value = "Patient/$id"))
+    return Reference(reference = FhirString(value = "${context.subject.resourceTypeName()}/$id"))
   }
 }
