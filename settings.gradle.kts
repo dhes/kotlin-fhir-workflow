@@ -28,3 +28,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "kotlin-fhir-workflow"
 include(":workflow")
+include(":workflow-demo")
