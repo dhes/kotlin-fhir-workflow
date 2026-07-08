@@ -88,6 +88,10 @@ kotlin {
         implementation(libs.kotlinx.coroutines.swing)
       }
     }
+    commonTest.dependencies {
+      implementation(libs.kotlin.test)
+      implementation(libs.kotlinx.coroutines.test)
+    }
   }
 }
 
