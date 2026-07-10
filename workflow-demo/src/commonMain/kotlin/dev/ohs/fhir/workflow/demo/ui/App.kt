@@ -22,8 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import dev.ohs.fhir.workflow.demo.data.EngineWorkflowRepository
-import dev.ohs.fhir.workflow.demo.data.fhirEngine
+import dev.ohs.fhir.workflow.demo.data.demoWorkflowRepository
 import dev.ohs.fhir.workflow.demo.flow.ActivityFlowDemoModel
 import kotlinx.coroutines.launch
 
@@ -35,7 +34,7 @@ import kotlinx.coroutines.launch
 fun App(platformContext: Any = Unit) {
   DemoTheme {
     Surface(modifier = Modifier.fillMaxSize()) {
-      val repository = remember { EngineWorkflowRepository(fhirEngine(platformContext)) }
+      val repository = remember { demoWorkflowRepository(platformContext) }
       val model = remember { ActivityFlowDemoModel(repository) }
       val scope = rememberCoroutineScope()
 

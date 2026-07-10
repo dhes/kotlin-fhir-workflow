@@ -1,7 +1,6 @@
 package dev.ohs.fhir.workflow.demo.flow
 
-import dev.ohs.fhir.workflow.demo.data.EngineWorkflowRepository
-import dev.ohs.fhir.workflow.demo.data.fhirEngine
+import dev.ohs.fhir.workflow.demo.data.InMemoryDemoRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -10,7 +9,7 @@ import kotlin.uuid.Uuid
 
 class ActivityFlowDemoModelTest {
 
-  private fun newModel() = ActivityFlowDemoModel(EngineWorkflowRepository(fhirEngine()))
+  private fun newModel() = ActivityFlowDemoModel(InMemoryDemoRepository())
 
   private fun cardsByName(model: ActivityFlowDemoModel) = model.phaseCards().associateBy { it.name }
 
