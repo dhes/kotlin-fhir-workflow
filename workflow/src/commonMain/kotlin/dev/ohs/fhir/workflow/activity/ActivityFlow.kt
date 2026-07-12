@@ -7,6 +7,7 @@ import dev.ohs.fhir.workflow.activity.phase.request.PlanPhase
 import dev.ohs.fhir.workflow.activity.phase.request.ProposalPhase
 import dev.ohs.fhir.workflow.activity.resource.event.CPGCommunicationEvent
 import dev.ohs.fhir.workflow.activity.resource.event.CPGEventResource
+import dev.ohs.fhir.workflow.activity.resource.event.CPGTaskEvent
 import dev.ohs.fhir.workflow.activity.resource.request.CPGCommunicationRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
@@ -56,12 +57,7 @@ class ActivityFlow<R : CPGRequestResource<*>, E : CPGEventResource<*>> private c
     fun of(repository: WorkflowRepository, resource: CPGMedicationRequest):
       ActivityFlow<CPGMedicationRequest, CPGEventResource<*>> = ActivityFlow(repository, resource)
 
-    /**
-     * NOTE: the perform phase is not yet supported for Task requests — there is no Task CPG
-     * event type yet, so [preparePerform] would fail for flows created here. Tracked as a
-     * follow-up; proposal/plan/order phases work as usual.
-     */
     fun of(repository: WorkflowRepository, resource: CPGTaskRequest):
-      ActivityFlow<CPGTaskRequest, CPGEventResource<*>> = ActivityFlow(repository, resource)
+      ActivityFlow<CPGTaskRequest, CPGTaskEvent> = ActivityFlow(repository, resource)
   }
 }

@@ -3,7 +3,9 @@ package dev.ohs.fhir.workflow.activity
 import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.Task
+import dev.ohs.fhir.workflow.activity.phase.event.PerformPhase
 import dev.ohs.fhir.workflow.activity.phase.request.ProposalPhase
+import dev.ohs.fhir.workflow.activity.resource.event.CPGTaskEvent
 import dev.ohs.fhir.workflow.activity.resource.request.CPGCommunicationRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGTaskRequest
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
@@ -41,5 +43,25 @@ class ActivityFlowTest {
 
     val flow = ActivityFlow.of(repo, taskRequest)
     flow.getCurrentPhase().shouldBeInstanceOf<ProposalPhase<*>>()
+  }
+
+  @Test
+  fun `task flow reaches perform and completes`() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val taskRequest = CPGTaskRequest(
+      Task(
+        id = "task-1",
+        status = Enumeration(value = Task.TaskStatus.Requested),
+        intent = Enumeration(value = Task.TaskIntent.Order),
+      ),
+    ).apply { setIntent(Intent.ORDER) }
+    repo.create(taskRequest.resource)
+
+    val flow = ActivityFlow.of(repo, taskRequest)
+    val event = flow.preparePerform<CPGTaskEvent>(CPGTaskEvent::class.simpleName!!).getOrThrow()
+    val perform = flow.initiatePerform(event).getOrThrow()
+    perform.shouldBeInstanceOf<PerformPhase<CPGTaskEvent>>()
+    assertTrue(perform.start().isSuccess)
+    assertTrue(perform.complete().isSuccess)
   }
 }
