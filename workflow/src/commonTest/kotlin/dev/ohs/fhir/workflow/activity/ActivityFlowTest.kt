@@ -46,7 +46,7 @@ class ActivityFlowTest {
   }
 
   @Test
-  fun `task flow reaches perform and completes`() = runTest {
+  fun shouldReachPerformAndCompleteWhenTaskFlow() = runTest {
     val repo = InMemoryWorkflowRepository()
     val taskRequest = CPGTaskRequest(
       Task(

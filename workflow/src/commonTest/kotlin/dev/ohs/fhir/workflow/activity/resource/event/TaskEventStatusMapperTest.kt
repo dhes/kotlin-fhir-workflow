@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 
 class TaskEventStatusMapperTest {
   @Test
-  fun `maps task codes to event statuses`() {
+  fun shouldMapTaskCodesToEventStatuses() {
     assertEquals(EventStatus.PREPARATION, TaskEventStatusMapper.mapCodeToStatus("ready"))
     assertEquals(EventStatus.INPROGRESS, TaskEventStatusMapper.mapCodeToStatus("in-progress"))
     assertEquals(EventStatus.COMPLETED, TaskEventStatusMapper.mapCodeToStatus("completed"))
@@ -15,7 +15,7 @@ class TaskEventStatusMapperTest {
   }
 
   @Test
-  fun `maps event statuses to task codes`() {
+  fun shouldMapEventStatusesToTaskCodes() {
     assertEquals("ready", TaskEventStatusMapper.mapStatusToCode(EventStatus.PREPARATION))
     assertEquals("in-progress", TaskEventStatusMapper.mapStatusToCode(EventStatus.INPROGRESS))
     assertEquals("completed", TaskEventStatusMapper.mapStatusToCode(EventStatus.COMPLETED))

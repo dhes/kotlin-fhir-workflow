@@ -18,14 +18,14 @@ class CPGTaskEventTest {
   ).apply { setIntent(Intent.ORDER) }
 
   @Test
-  fun `task event is created from a task request in preparation, based on the request`() {
+  fun shouldCreateTaskEventInPreparationWhenFromRequest() {
     val event = CPGTaskEvent.from(taskRequest())
     assertEquals(EventStatus.PREPARATION, event.getStatus())
     assertEquals("Task/task-1", event.getBasedOn()?.reference?.value)
   }
 
   @Test
-  fun `event registry resolves task request and task resource to CPGTaskEvent`() {
+  fun shouldResolveToTaskEventWhenTaskRequestOrResource() {
     assertTrue(CPGEventResource.from(taskRequest(), "CPGTaskEvent") is CPGTaskEvent)
     assertTrue(
       CPGEventResource.of(

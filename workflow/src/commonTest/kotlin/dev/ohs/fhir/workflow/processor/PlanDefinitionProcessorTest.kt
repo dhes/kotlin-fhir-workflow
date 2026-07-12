@@ -89,7 +89,7 @@ class PlanDefinitionProcessorTest {
   }
 
   @Test
-  fun `apply copies action extension onto the request group action`() = runTest {
+  fun shouldCopyActionExtensionWhenApplying() = runTest {
     val repo = InMemoryWorkflowRepository()
     val ext = Extension(url = "https://ohs.fhir.org/StructureDefinition/schedule-offset")
     val pd = PlanDefinition(
@@ -111,7 +111,7 @@ class PlanDefinitionProcessorTest {
   }
 
   @Test
-  fun `apply instantiates a task from the action activity definition`() = runTest {
+  fun shouldInstantiateTaskWhenActionHasActivityDefinition() = runTest {
     val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-bcg"
     val repo = InMemoryWorkflowRepository().apply {
       registerUriIndex("ActivityDefinition", "url") { listOf((it as ActivityDefinition).url?.value ?: "") }
