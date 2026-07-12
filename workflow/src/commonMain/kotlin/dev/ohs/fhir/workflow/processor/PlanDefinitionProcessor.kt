@@ -25,37 +25,8 @@ class PlanDefinitionProcessor(
   private val resolver: CanonicalResolver,
 ) {
   suspend fun apply(planDefinition: PlanDefinition, context: EvaluationContext): CarePlan {
-    val applicableActionIds = mutableSetOf<String>()
-    val groupActions = mutableListOf<RequestGroup.Action>()
     val tasks = mutableListOf<Task>()
-
-    for (action in planDefinition.action) {
-      // relatedAction: skip if a prerequisite action wasn't applicable this run. This is an
-      // order-sensitive, relationship-agnostic gate: it only sees prerequisites declared
-      // earlier in `action` and ignores the actual relationship semantics (before/after/etc.).
-      // A prerequisite declared after its dependent is silently treated as unmet. Full
-      // relatedAction semantics are a follow-up.
-      val prerequisitesMet = action.relatedAction.all { rel ->
-        applicableActionIds.contains(rel.actionId.value)
-      }
-      if (!prerequisitesMet) continue
-
-      if (!isApplicable(action, context)) continue
-      action.id?.let { applicableActionIds.add(it) }
-
-      val title = action.title ?: resolveTitle(action)
-      val task = instantiateTask(planDefinition, action, context)
-      task?.let { tasks.add(it) }
-      groupActions.add(
-        RequestGroup.Action(
-          id = action.id,
-          title = title,
-          description = action.description,
-          extension = action.extension,
-          resource = task?.let { Reference(reference = FhirString(value = "#${it.id}")) },
-        ),
-      )
-    }
+    val groupActions = processActions(planDefinition, planDefinition.action, context, tasks)
 
     val requestGroup = RequestGroup(
       id = "rg-${planDefinition.id}",
@@ -76,6 +47,46 @@ class PlanDefinitionProcessor(
         listOf(CarePlan.Activity(reference = Reference(reference = FhirString(value = "#${requestGroup.id}"))))
       },
     )
+  }
+
+  /**
+   * Processes a sibling list of actions into [RequestGroup.Action]s, recursing into nested
+   * `action.action` (e.g. an ANC contact bundling sub-activities). `relatedAction` prerequisites are
+   * gated within the sibling level. Each applicable action with a resolvable
+   * [ActivityDefinition][dev.ohs.fhir.model.r4.ActivityDefinition] instantiates a [Task] (added to
+   * [tasks]) referenced from the emitted action; group actions carry their processed children.
+   */
+  private suspend fun processActions(
+    planDefinition: PlanDefinition,
+    actions: List<PlanDefinition.Action>,
+    context: EvaluationContext,
+    tasks: MutableList<Task>,
+  ): List<RequestGroup.Action> {
+    val applicableActionIds = mutableSetOf<String>()
+    val groupActions = mutableListOf<RequestGroup.Action>()
+    for (action in actions) {
+      val prerequisitesMet =
+        action.relatedAction.all { rel -> applicableActionIds.contains(rel.actionId.value) }
+      if (!prerequisitesMet) continue
+      if (!isApplicable(action, context)) continue
+      action.id?.let { applicableActionIds.add(it) }
+
+      val title = action.title ?: resolveTitle(action)
+      val task = instantiateTask(planDefinition, action, context)
+      task?.let { tasks.add(it) }
+      val children = processActions(planDefinition, action.action, context, tasks)
+      groupActions.add(
+        RequestGroup.Action(
+          id = action.id,
+          title = title,
+          description = action.description,
+          extension = action.extension,
+          resource = task?.let { Reference(reference = FhirString(value = "#${it.id}")) },
+          action = children,
+        ),
+      )
+    }
+    return groupActions
   }
 
   private suspend fun isApplicable(action: PlanDefinition.Action, context: EvaluationContext): Boolean {

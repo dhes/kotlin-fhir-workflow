@@ -145,4 +145,30 @@ class PlanDefinitionProcessorTest {
     val rg = carePlan.contained.filterIsInstance<RequestGroup>().single()
     assertEquals("#${task.id}", rg.action.single().resource?.reference?.value)
   }
+
+  @Test
+  fun shouldEmitNestedActionsWhenActionHasChildren() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val pd = PlanDefinition(
+      id = "anc",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(
+          id = "contact-1",
+          title = FhirString(value = "Contact 1"),
+          action = listOf(
+            PlanDefinition.Action(id = "bp", title = FhirString(value = "BP")),
+            PlanDefinition.Action(id = "tt", title = FhirString(value = "TT")),
+          ),
+        ),
+      ),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    val carePlan = processor.apply(pd, ctx)
+
+    val contact = carePlan.contained.filterIsInstance<RequestGroup>().single().action.single()
+    assertEquals("contact-1", contact.id)
+    assertEquals(listOf("bp", "tt"), contact.action.map { it.id })
+  }
 }
