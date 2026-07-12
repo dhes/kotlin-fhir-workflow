@@ -7,10 +7,12 @@ import dev.ohs.fhir.workflow.activity.phase.request.PlanPhase
 import dev.ohs.fhir.workflow.activity.phase.request.ProposalPhase
 import dev.ohs.fhir.workflow.activity.resource.event.CPGCommunicationEvent
 import dev.ohs.fhir.workflow.activity.resource.event.CPGEventResource
+import dev.ohs.fhir.workflow.activity.resource.event.CPGServiceReportEvent
 import dev.ohs.fhir.workflow.activity.resource.event.CPGTaskEvent
 import dev.ohs.fhir.workflow.activity.resource.request.CPGCommunicationRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
+import dev.ohs.fhir.workflow.activity.resource.request.CPGServiceRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGTaskRequest
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
@@ -59,5 +61,8 @@ class ActivityFlow<R : CPGRequestResource<*>, E : CPGEventResource<*>> private c
 
     fun of(repository: WorkflowRepository, resource: CPGTaskRequest):
       ActivityFlow<CPGTaskRequest, CPGTaskEvent> = ActivityFlow(repository, resource)
+
+    fun of(repository: WorkflowRepository, resource: CPGServiceRequest):
+      ActivityFlow<CPGServiceRequest, CPGServiceReportEvent> = ActivityFlow(repository, resource)
   }
 }

@@ -4,6 +4,7 @@ import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.Resource
+import dev.ohs.fhir.model.r4.ServiceRequest
 import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.workflow.logicalId
 import dev.ohs.fhir.workflow.reference
@@ -51,6 +52,7 @@ sealed class CPGRequestResource<R : Resource>(internal val mapper: StatusCodeMap
         is CommunicationRequest -> CPGCommunicationRequest(resource)
         is MedicationRequest -> CPGMedicationRequest(resource)
         is Task -> CPGTaskRequest(resource)
+        is ServiceRequest -> CPGServiceRequest(resource)
         else -> throw IllegalArgumentException("Unknown CPG Request type ${resource::class}.")
       } as CPGRequestResource<R>
     }
