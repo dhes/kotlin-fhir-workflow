@@ -87,4 +87,62 @@ class PlanDefinitionProcessorTest {
     val carePlan = processor.apply(pd, ctx)
     assertEquals(0, carePlan.contained.filterIsInstance<RequestGroup>().single().action.size)
   }
+
+  @Test
+  fun `apply copies action extension onto the request group action`() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val ext = Extension(url = "https://ohs.fhir.org/StructureDefinition/schedule-offset")
+    val pd = PlanDefinition(
+      id = "pd-1",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(id = "a1", title = FhirString(value = "A1"), extension = listOf(ext)),
+      ),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    val carePlan = processor.apply(pd, ctx)
+
+    val rg = carePlan.contained.filterIsInstance<RequestGroup>().single()
+    assertEquals(
+      "https://ohs.fhir.org/StructureDefinition/schedule-offset",
+      rg.action.single().extension.single().url,
+    )
+  }
+
+  @Test
+  fun `apply instantiates a task from the action activity definition`() = runTest {
+    val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-bcg"
+    val repo = InMemoryWorkflowRepository().apply {
+      registerUriIndex("ActivityDefinition", "url") { listOf((it as ActivityDefinition).url?.value ?: "") }
+      create(
+        ActivityDefinition(
+          id = "ad-bcg",
+          url = Uri(value = adUrl),
+          status = Enumeration(value = PublicationStatus.Active),
+          kind = Enumeration(value = ActivityDefinition.RequestResourceType.Task),
+          code = CodeableConcept(coding = listOf(Coding(code = Code(value = "BCG")))),
+        ),
+      )
+    }
+    val pd = PlanDefinition(
+      id = "pd-1",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(
+          id = "bcg",
+          title = FhirString(value = "BCG"),
+          definition = PlanDefinition.Action.Definition.Canonical(Canonical(value = adUrl)),
+        ),
+      ),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    val carePlan = processor.apply(pd, ctx)
+
+    val task = carePlan.contained.filterIsInstance<Task>().single()
+    assertEquals("BCG", task.code?.coding?.first()?.code?.value)
+    val rg = carePlan.contained.filterIsInstance<RequestGroup>().single()
+    assertEquals("#${task.id}", rg.action.single().resource?.reference?.value)
+  }
 }

@@ -7,6 +7,7 @@ import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.RequestGroup
 import dev.ohs.fhir.model.r4.String as FhirString
+import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
@@ -26,6 +27,7 @@ class PlanDefinitionProcessor(
   suspend fun apply(planDefinition: PlanDefinition, context: EvaluationContext): CarePlan {
     val applicableActionIds = mutableSetOf<String>()
     val groupActions = mutableListOf<RequestGroup.Action>()
+    val tasks = mutableListOf<Task>()
 
     for (action in planDefinition.action) {
       // relatedAction: skip if a prerequisite action wasn't applicable this run. This is an
@@ -42,11 +44,15 @@ class PlanDefinitionProcessor(
       action.id?.let { applicableActionIds.add(it) }
 
       val title = action.title ?: resolveTitle(action)
+      val task = instantiateTask(planDefinition, action, context)
+      task?.let { tasks.add(it) }
       groupActions.add(
         RequestGroup.Action(
           id = action.id,
           title = title,
           description = action.description,
+          extension = action.extension,
+          resource = task?.let { Reference(reference = FhirString(value = "#${it.id}")) },
         ),
       )
     }
@@ -63,7 +69,7 @@ class PlanDefinitionProcessor(
       status = Enumeration(value = CarePlan.RequestStatus.Active),
       intent = Enumeration(value = CarePlan.CarePlanIntent.Plan),
       subject = subjectReference(context),
-      contained = listOf(requestGroup),
+      contained = listOf(requestGroup) + tasks,
       activity = if (groupActions.isEmpty()) {
         emptyList()
       } else {
@@ -90,6 +96,29 @@ class PlanDefinitionProcessor(
   private suspend fun resolveTitle(action: PlanDefinition.Action): FhirString? {
     val canonical = action.definition?.asCanonical()?.value?.value ?: return null
     return resolver.resolveActivityDefinition(canonical)?.title
+  }
+
+  /**
+   * Instantiates a concrete [Task] from the action's referenced [ActivityDefinition][dev.ohs.fhir.model.r4.ActivityDefinition],
+   * copying its static `code`/`description`. `dynamicValue` write-back is not yet applied. Returns
+   * null when the action has no resolvable definition.
+   */
+  private suspend fun instantiateTask(
+    planDefinition: PlanDefinition,
+    action: PlanDefinition.Action,
+    context: EvaluationContext,
+  ): Task? {
+    val canonical = action.definition?.asCanonical()?.value?.value ?: return null
+    val activityDefinition = resolver.resolveActivityDefinition(canonical) ?: return null
+    return Task(
+      id = "task-${planDefinition.id}-${action.id ?: activityDefinition.id}",
+      status = Enumeration(value = Task.TaskStatus.Requested),
+      intent = Enumeration(value = Task.TaskIntent.Order),
+      code = activityDefinition.code,
+      description = action.description ?: activityDefinition.description,
+      `for` = subjectReference(context),
+      basedOn = listOf(Reference(reference = FhirString(value = "#rg-${planDefinition.id}"))),
+    )
   }
 
   private fun subjectReference(context: EvaluationContext): Reference {
