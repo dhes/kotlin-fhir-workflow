@@ -243,6 +243,85 @@ class PlanDefinitionProcessorTest {
     assertEquals("Patient/p1", serviceRequest.subject.reference?.value)
   }
 
+  @Test
+  fun shouldApplyDynamicValuesToInstantiatedRequest() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-1"
+    repo.registerUriIndex("ActivityDefinition", "url") { listOf((it as ActivityDefinition).url?.value ?: "") }
+    repo.create(
+      ActivityDefinition(
+        id = "ad-1",
+        url = Uri(value = adUrl),
+        status = Enumeration(value = PublicationStatus.Active),
+        kind = Enumeration(value = ActivityDefinition.RequestResourceType.MedicationRequest),
+        product = ActivityDefinition.Product.CodeableConcept(CodeableConcept(text = FhirString(value = "Apple"))),
+        dynamicValue = listOf(
+          ActivityDefinition.DynamicValue(
+            path = FhirString(value = "priority"),
+            expression = Expression(
+              language = Enumeration(value = Expression.ExpressionLanguage.Text_Fhirpath),
+              expression = FhirString(value = "'routine'"),
+            ),
+          ),
+        ),
+      ),
+    )
+    val pd = PlanDefinition(
+      id = "pd-1",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(
+          id = "a1",
+          definition = PlanDefinition.Action.Definition.Canonical(Canonical(value = adUrl)),
+        ),
+      ),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 13))
+    val carePlan = processor.apply(pd, ctx)
+
+    val medicationRequest = carePlan.contained.filterIsInstance<MedicationRequest>().single()
+    assertEquals("routine", medicationRequest.priority?.value?.getCode())
+  }
+
+  @Test
+  fun shouldThrowWhenDynamicValuePathIsUnknownField() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-1"
+    repo.registerUriIndex("ActivityDefinition", "url") { listOf((it as ActivityDefinition).url?.value ?: "") }
+    repo.create(
+      ActivityDefinition(
+        id = "ad-1",
+        url = Uri(value = adUrl),
+        status = Enumeration(value = PublicationStatus.Active),
+        kind = Enumeration(value = ActivityDefinition.RequestResourceType.MedicationRequest),
+        product = ActivityDefinition.Product.CodeableConcept(CodeableConcept(text = FhirString(value = "Apple"))),
+        dynamicValue = listOf(
+          ActivityDefinition.DynamicValue(
+            path = FhirString(value = "notAField"),
+            expression = Expression(
+              language = Enumeration(value = Expression.ExpressionLanguage.Text_Fhirpath),
+              expression = FhirString(value = "'routine'"),
+            ),
+          ),
+        ),
+      ),
+    )
+    val pd = PlanDefinition(
+      id = "pd-1",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(
+          id = "a1",
+          definition = PlanDefinition.Action.Definition.Canonical(Canonical(value = adUrl)),
+        ),
+      ),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 13))
+    assertFailsWith<Exception> { processor.apply(pd, ctx) }
+  }
+
   private suspend fun InMemoryWorkflowRepository.planForKind(
     kind: ActivityDefinition.RequestResourceType,
     product: ActivityDefinition.Product? = null,

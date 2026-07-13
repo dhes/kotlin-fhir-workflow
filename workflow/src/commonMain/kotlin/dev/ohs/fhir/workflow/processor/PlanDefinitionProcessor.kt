@@ -20,6 +20,10 @@ import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
 import dev.ohs.fhir.workflow.knowledge.CanonicalResolver
 import dev.ohs.fhir.workflow.resourceTypeName
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 /**
  * FHIRPath-based `PlanDefinition/$apply`. Composes an [ExpressionEvaluator] to check
@@ -123,8 +127,9 @@ class PlanDefinitionProcessor(
    * Instantiates a proposal-intent request resource from the action's referenced
    * [ActivityDefinition], choosing the concrete type from its `kind` (MedicationRequest,
    * ServiceRequest, CommunicationRequest, or Task as the default). Static fields (`code`, medication
-   * `product`) are copied; `dynamicValue` write-back is not yet applied. Returns null when the action
-   * has no resolvable definition.
+   * `product`) are copied, and `dynamicValue` expressions from both the [ActivityDefinition] and the
+   * action are evaluated and written back (the action's overriding the ActivityDefinition's on
+   * matching paths). Returns null when the action has no resolvable definition.
    */
   private suspend fun instantiateRequest(
     planDefinition: PlanDefinition,
@@ -136,7 +141,7 @@ class PlanDefinitionProcessor(
     val id = "request-${planDefinition.id}-${action.id ?: ad.id}"
     val subject = subjectReference(context)
     val basedOn = Reference(reference = FhirString(value = "#rg-${planDefinition.id}"))
-    return when (ad.kind?.value) {
+    val request: Resource = when (ad.kind?.value) {
       ActivityDefinition.RequestResourceType.MedicationRequest ->
         MedicationRequest(
           id = id,
@@ -173,7 +178,45 @@ class PlanDefinitionProcessor(
           basedOn = listOf(basedOn),
         )
     }
+    val writes =
+      ad.dynamicValue.mapNotNull { dv ->
+        dv.path.value?.let { path -> DynamicWrite(path, dv.expression) }
+      } +
+        action.dynamicValue.mapNotNull { dv ->
+          val path = dv.path?.value ?: return@mapNotNull null
+          val expression = dv.expression ?: return@mapNotNull null
+          DynamicWrite(path, expression)
+        }
+    return applyDynamicValues(request, writes, context)
   }
+
+  private data class DynamicWrite(val path: String, val expression: Expression)
+
+  private suspend fun applyDynamicValues(
+    resource: Resource,
+    writes: List<DynamicWrite>,
+    context: EvaluationContext,
+  ): Resource {
+    if (writes.isEmpty()) return resource
+    var json = processorJson.encodeToJsonElement(Resource.serializer(), resource).jsonObject
+    for (write in writes) {
+      val value = evaluateSingle(write.expression, context)
+      json = DynamicValueApplier.set(json, write.path, value)
+    }
+    return processorJson.decodeFromJsonElement(Resource.serializer(), json)
+  }
+
+  private suspend fun evaluateSingle(expression: Expression, context: EvaluationContext): JsonElement =
+    when (val result = evaluator.evaluate(expression.toProtocolExpression(), context)) {
+      is EvaluationResult.Bool -> JsonPrimitive(result.value)
+      is EvaluationResult.Values ->
+        evaluatedValueToJson(
+          result.value.firstOrNull()
+            ?: throw IllegalStateException("dynamicValue expression produced no value"),
+        )
+      is EvaluationResult.Failure ->
+        throw IllegalStateException("dynamicValue failed to evaluate: ${result.message}")
+    }
 
   private fun medicationFrom(ad: ActivityDefinition): MedicationRequest.Medication =
     when (val product = ad.product) {
@@ -197,4 +240,9 @@ private fun Expression.toProtocolExpression(): ProtocolExpression {
     Expression.ExpressionLanguage.Text_Cql -> ProtocolExpression.Elm(text)
     else -> throw IllegalStateException("Unsupported expression language: ${language.value?.getCode()}")
   }
+}
+
+private val processorJson = Json {
+  encodeDefaults = false
+  explicitNulls = false
 }
