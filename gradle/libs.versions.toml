@@ -6,6 +6,7 @@ ohs-fhir-path = "1.0.0-beta03"
 ohs-fhir-engine = "2.0.0-alpha01"
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.6.2"
+kotlinx-serialization = "1.8.0"
 kotest = "6.2.0"
 composeMultiplatform = "1.11.0"
 kermit = "2.0.8"
@@ -19,6 +20,7 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.9.3" }

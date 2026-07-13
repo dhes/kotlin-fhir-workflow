@@ -41,6 +41,7 @@ kotlin {
         implementation(libs.ohs.fhir.path)
         implementation(libs.kotlinx.coroutines.core)
         implementation(libs.kotlinx.datetime)
+        implementation(libs.kotlinx.serialization.json)
       }
     }
     commonTest {
