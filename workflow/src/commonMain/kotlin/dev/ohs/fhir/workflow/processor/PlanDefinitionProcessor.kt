@@ -1,11 +1,17 @@
 package dev.ohs.fhir.workflow.processor
 
+import dev.ohs.fhir.model.r4.ActivityDefinition
 import dev.ohs.fhir.model.r4.CarePlan
+import dev.ohs.fhir.model.r4.CodeableConcept
+import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.Expression
+import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.RequestGroup
+import dev.ohs.fhir.model.r4.Resource
+import dev.ohs.fhir.model.r4.ServiceRequest
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.workflow.expression.EvaluationContext
@@ -26,8 +32,8 @@ class PlanDefinitionProcessor(
   private val resolver: CanonicalResolver,
 ) {
   suspend fun apply(planDefinition: PlanDefinition, context: EvaluationContext): CarePlan {
-    val tasks = mutableListOf<Task>()
-    val groupActions = processActions(planDefinition, planDefinition.action, context, tasks)
+    val requests = mutableListOf<Resource>()
+    val groupActions = processActions(planDefinition, planDefinition.action, context, requests)
 
     val requestGroup = RequestGroup(
       id = "rg-${planDefinition.id}",
@@ -41,7 +47,7 @@ class PlanDefinitionProcessor(
       status = Enumeration(value = CarePlan.RequestStatus.Active),
       intent = Enumeration(value = CarePlan.CarePlanIntent.Plan),
       subject = subjectReference(context),
-      contained = listOf(requestGroup) + tasks,
+      contained = listOf<Resource>(requestGroup) + requests,
       activity = if (groupActions.isEmpty()) {
         emptyList()
       } else {
@@ -54,14 +60,14 @@ class PlanDefinitionProcessor(
    * Processes a sibling list of actions into [RequestGroup.Action]s, recursing into nested
    * `action.action` (e.g. an ANC contact bundling sub-activities). `relatedAction` prerequisites are
    * gated within the sibling level. Each applicable action with a resolvable
-   * [ActivityDefinition][dev.ohs.fhir.model.r4.ActivityDefinition] instantiates a [Task] (added to
-   * [tasks]) referenced from the emitted action; group actions carry their processed children.
+   * [ActivityDefinition] instantiates a request resource of its `kind` (added to [requests])
+   * referenced from the emitted action; group actions carry their processed children.
    */
   private suspend fun processActions(
     planDefinition: PlanDefinition,
     actions: List<PlanDefinition.Action>,
     context: EvaluationContext,
-    tasks: MutableList<Task>,
+    requests: MutableList<Resource>,
   ): List<RequestGroup.Action> {
     val applicableActionIds = mutableSetOf<String>()
     val groupActions = mutableListOf<RequestGroup.Action>()
@@ -73,16 +79,16 @@ class PlanDefinitionProcessor(
       action.id?.let { applicableActionIds.add(it) }
 
       val title = action.title ?: resolveTitle(action)
-      val task = instantiateTask(planDefinition, action, context)
-      task?.let { tasks.add(it) }
-      val children = processActions(planDefinition, action.action, context, tasks)
+      val request = instantiateRequest(planDefinition, action, context)
+      request?.let { requests.add(it) }
+      val children = processActions(planDefinition, action.action, context, requests)
       groupActions.add(
         RequestGroup.Action(
           id = action.id,
           title = title,
           description = action.description,
           extension = action.extension,
-          resource = task?.let { Reference(reference = FhirString(value = "#${it.id}")) },
+          resource = request?.let { Reference(reference = FhirString(value = "#${it.id}")) },
           action = children,
         ),
       )
@@ -114,27 +120,68 @@ class PlanDefinitionProcessor(
   }
 
   /**
-   * Instantiates a concrete [Task] from the action's referenced [ActivityDefinition][dev.ohs.fhir.model.r4.ActivityDefinition],
-   * copying its static `code`/`description`. `dynamicValue` write-back is not yet applied. Returns
-   * null when the action has no resolvable definition.
+   * Instantiates a proposal-intent request resource from the action's referenced
+   * [ActivityDefinition], choosing the concrete type from its `kind` (MedicationRequest,
+   * ServiceRequest, CommunicationRequest, or Task as the default). Static fields (`code`, medication
+   * `product`) are copied; `dynamicValue` write-back is not yet applied. Returns null when the action
+   * has no resolvable definition.
    */
-  private suspend fun instantiateTask(
+  private suspend fun instantiateRequest(
     planDefinition: PlanDefinition,
     action: PlanDefinition.Action,
     context: EvaluationContext,
-  ): Task? {
+  ): Resource? {
     val canonical = action.definition?.asCanonical()?.value?.value ?: return null
-    val activityDefinition = resolver.resolveActivityDefinition(canonical) ?: return null
-    return Task(
-      id = "task-${planDefinition.id}-${action.id ?: activityDefinition.id}",
-      status = Enumeration(value = Task.TaskStatus.Requested),
-      intent = Enumeration(value = Task.TaskIntent.Order),
-      code = activityDefinition.code,
-      description = action.description ?: activityDefinition.description,
-      `for` = subjectReference(context),
-      basedOn = listOf(Reference(reference = FhirString(value = "#rg-${planDefinition.id}"))),
-    )
+    val ad = resolver.resolveActivityDefinition(canonical) ?: return null
+    val id = "request-${planDefinition.id}-${action.id ?: ad.id}"
+    val subject = subjectReference(context)
+    val basedOn = Reference(reference = FhirString(value = "#rg-${planDefinition.id}"))
+    return when (ad.kind?.value) {
+      ActivityDefinition.RequestResourceType.MedicationRequest ->
+        MedicationRequest(
+          id = id,
+          status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
+          intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Proposal),
+          medication = medicationFrom(ad),
+          subject = subject,
+          basedOn = listOf(basedOn),
+        )
+      ActivityDefinition.RequestResourceType.ServiceRequest ->
+        ServiceRequest(
+          id = id,
+          status = Enumeration(value = ServiceRequest.RequestStatus.Active),
+          intent = Enumeration(value = ServiceRequest.RequestIntent.Proposal),
+          code = ad.code,
+          subject = subject,
+          basedOn = listOf(basedOn),
+        )
+      ActivityDefinition.RequestResourceType.CommunicationRequest ->
+        CommunicationRequest(
+          id = id,
+          status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+          subject = subject,
+          basedOn = listOf(basedOn),
+        )
+      else ->
+        Task(
+          id = id,
+          status = Enumeration(value = Task.TaskStatus.Requested),
+          intent = Enumeration(value = Task.TaskIntent.Proposal),
+          code = ad.code,
+          description = action.description ?: ad.description,
+          `for` = subject,
+          basedOn = listOf(basedOn),
+        )
+    }
   }
+
+  private fun medicationFrom(ad: ActivityDefinition): MedicationRequest.Medication =
+    when (val product = ad.product) {
+      is ActivityDefinition.Product.CodeableConcept ->
+        MedicationRequest.Medication.CodeableConcept(product.value)
+      is ActivityDefinition.Product.Reference -> MedicationRequest.Medication.Reference(product.value)
+      null -> MedicationRequest.Medication.CodeableConcept(ad.code ?: CodeableConcept())
+    }
 
   private fun subjectReference(context: EvaluationContext): Reference {
     val id = context.subject.id ?: "unknown"

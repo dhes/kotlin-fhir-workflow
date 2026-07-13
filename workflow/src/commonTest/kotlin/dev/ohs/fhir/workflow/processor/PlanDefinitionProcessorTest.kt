@@ -210,4 +210,64 @@ class PlanDefinitionProcessorTest {
     assertEquals("contact-1", contact.id)
     assertEquals(listOf("bp", "tt"), contact.action.map { it.id })
   }
+
+  @Test
+  fun shouldInstantiateMedicationRequestWhenKindIsMedicationRequest() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val pd = repo.planForKind(
+      ActivityDefinition.RequestResourceType.MedicationRequest,
+      ActivityDefinition.Product.CodeableConcept(CodeableConcept(text = FhirString(value = "Apple, daily"))),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    val carePlan = processor.apply(pd, ctx)
+
+    val medicationRequest = carePlan.contained.filterIsInstance<MedicationRequest>().single()
+    assertEquals("Patient/p1", medicationRequest.subject.reference?.value)
+    assertEquals(
+      "Apple, daily",
+      (medicationRequest.medication as MedicationRequest.Medication.CodeableConcept).value.text?.value,
+    )
+    assertEquals(0, carePlan.contained.filterIsInstance<Task>().size)
+  }
+
+  @Test
+  fun shouldInstantiateServiceRequestWhenKindIsServiceRequest() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val pd = repo.planForKind(ActivityDefinition.RequestResourceType.ServiceRequest)
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    val carePlan = processor.apply(pd, ctx)
+
+    val serviceRequest = carePlan.contained.filterIsInstance<ServiceRequest>().single()
+    assertEquals("Patient/p1", serviceRequest.subject.reference?.value)
+  }
+
+  private suspend fun InMemoryWorkflowRepository.planForKind(
+    kind: ActivityDefinition.RequestResourceType,
+    product: ActivityDefinition.Product? = null,
+  ): PlanDefinition {
+    val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-1"
+    registerUriIndex("ActivityDefinition", "url") { listOf((it as ActivityDefinition).url?.value ?: "") }
+    create(
+      ActivityDefinition(
+        id = "ad-1",
+        url = Uri(value = adUrl),
+        status = Enumeration(value = PublicationStatus.Active),
+        kind = Enumeration(value = kind),
+        code = CodeableConcept(coding = listOf(Coding(code = Code(value = "X")))),
+        product = product,
+      ),
+    )
+    return PlanDefinition(
+      id = "pd-1",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(
+          id = "a1",
+          definition = PlanDefinition.Action.Definition.Canonical(Canonical(value = adUrl)),
+        ),
+      ),
+    )
+  }
 }
