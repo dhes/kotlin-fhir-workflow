@@ -8,7 +8,7 @@ plugins {
 
 group = "dev.ohs.fhir"
 
-version = "1.0.0-alpha03"
+version = "2.0.0-alpha01"
 
 kotlin {
   jvmToolchain(21)
