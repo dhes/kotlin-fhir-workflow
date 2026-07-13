@@ -8,7 +8,6 @@ import dev.ohs.fhir.workflow.activity.resource.event.CPGEventResource
 import dev.ohs.fhir.workflow.activity.resource.event.CPGMedicationDispenseEvent
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
-import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,7 +92,6 @@ class ActivityFlowDemoModel(
     when (val current = resumed.getCurrentPhase()) {
       is Phase.EventPhase<*> -> event = current.getEventResource() as? CPGMedicationDispenseEvent
       is Phase.RequestPhase<*> -> record(current.getPhaseName(), current.getRequestResource())
-      else -> Unit
     }
 
     // The phase to run next is the first one the flow has no resource for, as upstream does.
