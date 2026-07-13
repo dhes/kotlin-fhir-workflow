@@ -73,7 +73,7 @@ fun App(platformContext: Any = Unit) {
                 Text(card.details, fontFamily = FontFamily.Monospace)
               }
               Button(
-                enabled = card.isActive,
+                enabled = if (started) card.isActive else card.name == "PROPOSAL",
                 onClick = {
                   scope.launch {
                     if (!started) {
@@ -86,7 +86,7 @@ fun App(platformContext: Any = Unit) {
                   }
                 },
               ) {
-                Text("Advance")
+                Text(if (started) "Advance" else "Create proposal")
               }
             }
           }
