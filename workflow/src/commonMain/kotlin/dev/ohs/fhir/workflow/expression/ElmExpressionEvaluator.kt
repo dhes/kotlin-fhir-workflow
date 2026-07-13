@@ -1,17 +1,18 @@
 package dev.ohs.fhir.workflow.expression
 
 /**
- * STUB. CQL is authored, compiled to ELM offline, and evaluated here — but no KMP
- * ELM interpreter exists yet, so every call fails cleanly. Swap in a real
- * implementation later without touching the router or the processor.
+ * STUB. CQL is authored, compiled to ELM offline, and evaluated here — but no KMP ELM interpreter
+ * exists yet, so every call throws. Swap in a real implementation later without touching the router
+ * or the processor.
  */
 class ElmExpressionEvaluator : ExpressionEvaluator {
+  // TODO: implement CQL/ELM evaluation on Kotlin Multiplatform (reference google/cql).
   override suspend fun evaluate(
     expression: ProtocolExpression,
     context: EvaluationContext,
   ): EvaluationResult =
-    EvaluationResult.Failure(
-      "ELM/CQL evaluation is not yet supported on Kotlin Multiplatform. " +
-        "Author conditions in text/fhirpath.",
+    throw NotImplementedError(
+      "CQL/ELM expression evaluation is not implemented on Kotlin Multiplatform. " +
+        "Author conditions in text/fhirpath, or provide a custom ExpressionEvaluator.",
     )
 }

@@ -9,6 +9,7 @@ import dev.ohs.fhir.model.r4.RequestGroup
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.workflow.expression.EvaluationContext
+import dev.ohs.fhir.workflow.expression.EvaluationResult
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
 import dev.ohs.fhir.workflow.knowledge.CanonicalResolver
@@ -94,13 +95,16 @@ class PlanDefinitionProcessor(
       it.kind.value == PlanDefinition.ActionConditionKind.Applicability
     }
     if (applicabilityConditions.isEmpty()) return true
-    // A Failure or non-boolean evaluation result is treated as `false` (silent skip); surfacing
-    // eval failures to the consumer is deferred to a follow-up.
     return applicabilityConditions.all { condition ->
-      val expr = condition.expression ?: return@all false
-      if (expr.language.value != Expression.ExpressionLanguage.Text_Fhirpath) return@all false
-      val fhirPath = expr.expression?.value ?: return@all false
-      evaluator.evaluate(ProtocolExpression.FhirPath(fhirPath), context).asBoolean() ?: false
+      val expression = condition.expression
+        ?: throw IllegalStateException("Applicability condition on action '${action.id}' has no expression")
+      when (val result = evaluator.evaluate(expression.toProtocolExpression(), context)) {
+        is EvaluationResult.Bool -> result.value
+        is EvaluationResult.Failure ->
+          throw IllegalStateException("Applicability condition failed to evaluate: ${result.message}")
+        is EvaluationResult.Values ->
+          throw IllegalStateException("Applicability condition did not evaluate to a boolean")
+      }
     }
   }
 
@@ -135,5 +139,15 @@ class PlanDefinitionProcessor(
   private fun subjectReference(context: EvaluationContext): Reference {
     val id = context.subject.id ?: "unknown"
     return Reference(reference = FhirString(value = "${context.subject.resourceTypeName()}/$id"))
+  }
+}
+
+/** Routes a FHIR [Expression] to the workflow [ProtocolExpression] by its declared language. */
+private fun Expression.toProtocolExpression(): ProtocolExpression {
+  val text = expression?.value ?: throw IllegalStateException("Expression has no expression text")
+  return when (language.value) {
+    Expression.ExpressionLanguage.Text_Fhirpath -> ProtocolExpression.FhirPath(text)
+    Expression.ExpressionLanguage.Text_Cql -> ProtocolExpression.Elm(text)
+    else -> throw IllegalStateException("Unsupported expression language: ${language.value?.getCode()}")
   }
 }

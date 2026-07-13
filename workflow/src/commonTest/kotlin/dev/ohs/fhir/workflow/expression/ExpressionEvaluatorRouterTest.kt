@@ -4,6 +4,7 @@ import dev.ohs.fhir.model.r4.Patient
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ExpressionEvaluatorRouterTest {
@@ -17,8 +18,9 @@ class ExpressionEvaluatorRouterTest {
   }
 
   @Test
-  fun `elm returns unsupported failure`() = runTest {
-    val r = router.evaluate(ProtocolExpression.Elm("{}"), ctx)
-    assertTrue(r is EvaluationResult.Failure)
+  fun shouldThrowNotImplementedWhenElmExpression() = runTest {
+    assertFailsWith<NotImplementedError> {
+      router.evaluate(ProtocolExpression.Elm("{}"), ctx)
+    }
   }
 }

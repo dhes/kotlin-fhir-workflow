@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class PlanDefinitionProcessorTest {
   @Test
@@ -87,6 +88,44 @@ class PlanDefinitionProcessorTest {
     val carePlan = processor.apply(pd, ctx)
     assertEquals(0, carePlan.contained.filterIsInstance<RequestGroup>().single().action.size)
   }
+
+  @Test
+  fun shouldThrowWhenApplicabilityConditionUsesCql() = runTest {
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(InMemoryWorkflowRepository()))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    assertFailsWith<NotImplementedError> {
+      processor.apply(planWithApplicability(Expression.ExpressionLanguage.Text_Cql, "true"), ctx)
+    }
+  }
+
+  @Test
+  fun shouldThrowWhenApplicabilityConditionIsNotBoolean() = runTest {
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(InMemoryWorkflowRepository()))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    assertFailsWith<IllegalStateException> {
+      processor.apply(planWithApplicability(Expression.ExpressionLanguage.Text_Fhirpath, "'not-a-boolean'"), ctx)
+    }
+  }
+
+  private fun planWithApplicability(language: Expression.ExpressionLanguage, expression: String) =
+    PlanDefinition(
+      id = "epi",
+      status = Enumeration(value = PublicationStatus.Active),
+      action = listOf(
+        PlanDefinition.Action(
+          id = "a1",
+          condition = listOf(
+            PlanDefinition.Action.Condition(
+              kind = Enumeration(value = PlanDefinition.ActionConditionKind.Applicability),
+              expression = Expression(
+                language = Enumeration(value = language),
+                expression = FhirString(value = expression),
+              ),
+            ),
+          ),
+        ),
+      ),
+    )
 
   @Test
   fun shouldCopyActionExtensionWhenApplying() = runTest {
