@@ -1,74 +1,127 @@
 package dev.ohs.fhir.workflow.demo.flow
 
+import dev.ohs.fhir.model.r4.CodeableConcept
+import dev.ohs.fhir.model.r4.Enumeration
+import dev.ohs.fhir.model.r4.MedicationRequest
+import dev.ohs.fhir.model.r4.Reference
+import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.workflow.demo.data.InMemoryDemoRepository
+import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.uuid.Uuid
 
 class ActivityFlowDemoModelTest {
 
-  private fun newModel() = ActivityFlowDemoModel(InMemoryDemoRepository())
+  private fun newModel(repository: WorkflowRepository = InMemoryDemoRepository()) =
+    ActivityFlowDemoModel(repository)
 
-  private fun cardsByName(model: ActivityFlowDemoModel) = model.phaseCards().associateBy { it.name }
+  private fun cards(model: ActivityFlowDemoModel) = model.cards.value.associateBy { it.phase }
 
   @Test
-  fun `createProposal starts an active proposal phase`() = runTest {
+  fun shouldStartAtInitializeWhenDependenciesAreNotInstalled() = runTest {
     val model = newModel()
-    model.createProposal("apple-guy-${Uuid.random()}")
+    model.refresh()
 
-    val cards = cardsByName(model)
-    val proposalCard = requireNotNull(cards["PROPOSAL"])
-    assertTrue(proposalCard.isActive)
-    assertTrue(proposalCard.details.contains("Intent: proposal"))
-    assertTrue(proposalCard.details.contains("Status: ACTIVE"))
-
-    assertEquals("—", cards.getValue("PLAN").details)
-    assertTrue(!cards.getValue("PLAN").isActive)
+    assertEquals(FlowPhase.INITIALIZE, model.phase.value)
+    assertFalse(model.initialized.value)
+    cards(model).values.forEach { assertFalse(it.isActive) }
   }
 
   @Test
-  fun `advance walks proposal through plan, order and a completed perform`() = runTest {
+  fun shouldEnableProposalWhenDependenciesAreInstalled() = runTest {
     val model = newModel()
-    model.createProposal("apple-guy-${Uuid.random()}")
+    model.installDependencies()
 
-    model.advance()
-    var cards = cardsByName(model)
-    val planCard = requireNotNull(cards["PLAN"])
-    assertTrue(planCard.isActive)
-    assertTrue(planCard.details.contains("Intent: plan"))
-    assertTrue(planCard.details.contains("Status: DRAFT"))
-    assertTrue(cards.getValue("PROPOSAL").details.contains("Status: COMPLETED"))
-
-    model.advance()
-    cards = cardsByName(model)
-    val orderCard = requireNotNull(cards["ORDER"])
-    assertTrue(orderCard.isActive)
-    assertTrue(orderCard.details.contains("Intent: order"))
-    assertTrue(orderCard.details.contains("Status: DRAFT"))
-    assertTrue(cards.getValue("PLAN").details.contains("Status: COMPLETED"))
-
-    model.advance()
-    cards = cardsByName(model)
-    val performCard = requireNotNull(cards["PERFORM"])
-    assertTrue(performCard.isActive)
-    assertTrue(performCard.details.contains("Status: COMPLETED"))
-    assertTrue(cards.getValue("ORDER").details.contains("Status: COMPLETED"))
+    assertTrue(model.initialized.value)
+    assertEquals(FlowPhase.PROPOSAL, model.phase.value)
+    assertTrue(cards(model).getValue(FlowPhase.PROPOSAL).isActive)
   }
 
   @Test
-  fun `restart clears the flow back to no proposal`() = runTest {
+  fun shouldGenerateProposalFromPlanDefinitionWhenProposalPhaseStarts() = runTest {
     val model = newModel()
-    model.createProposal("apple-guy-${Uuid.random()}")
-    model.advance()
+    model.installDependencies()
+
+    model.start(FlowPhase.PROPOSAL)
+
+    val proposal = cards(model).getValue(FlowPhase.PROPOSAL)
+    assertTrue(proposal.details.contains("Intent : proposal"))
+    assertTrue(proposal.details.contains("Status : ACTIVE"))
+    // The dosage the DailyApple ActivityDefinition declares, carried onto the generated request.
+    assertTrue(proposal.details.contains("\"periodUnit\": \"d\""))
+
+    // The proposal is done; the plan is what's startable next.
+    assertEquals(FlowPhase.PLAN, model.phase.value)
+    assertTrue(cards(model).getValue(FlowPhase.PLAN).isActive)
+  }
+
+  @Test
+  fun shouldWalkProposalThroughPlanOrderAndACompletedPerform() = runTest {
+    val model = newModel()
+    model.installDependencies()
+    model.start(FlowPhase.PROPOSAL)
+
+    model.start(FlowPhase.PLAN)
+    var phaseCards = cards(model)
+    assertTrue(phaseCards.getValue(FlowPhase.PLAN).details.contains("Intent : plan"))
+    assertTrue(phaseCards.getValue(FlowPhase.PROPOSAL).details.contains("Status : COMPLETED"))
+
+    model.start(FlowPhase.ORDER)
+    phaseCards = cards(model)
+    assertTrue(phaseCards.getValue(FlowPhase.ORDER).details.contains("Intent : order"))
+    assertTrue(phaseCards.getValue(FlowPhase.PLAN).details.contains("Status : COMPLETED"))
+
+    model.start(FlowPhase.PERFORM)
+    phaseCards = cards(model)
+    assertTrue(phaseCards.getValue(FlowPhase.PERFORM).details.contains("Status : COMPLETED"))
+    assertTrue(phaseCards.getValue(FlowPhase.ORDER).details.contains("Status : COMPLETED"))
+    assertEquals(FlowPhase.NONE, model.phase.value)
+  }
+
+  @Test
+  fun shouldSuppressProposalWhenThePatientAlreadyHasAnActiveOrder() = runTest {
+    val repository = InMemoryDemoRepository()
+    val handler = ProposalCreationHandler(repository)
+    handler.installDependencies(MEDICATION_DISPENSE)
+    repository.create(activeAppleOrder())
+
+    // The plan's applicability condition rejects the patient, so $apply generates nothing.
+    assertEquals(null, handler.generateProposal(MEDICATION_DISPENSE))
+  }
+
+  @Test
+  fun shouldRevokeOutstandingRequestsWhenRestarted() = runTest {
+    val repository = InMemoryDemoRepository()
+    val model = newModel(repository)
+    model.installDependencies()
+    model.start(FlowPhase.PROPOSAL)
+    model.start(FlowPhase.PLAN)
+    model.start(FlowPhase.ORDER)
+    val orderId = requireNotNull(model.cards.value.first { it.phase == FlowPhase.ORDER }.details)
+      .substringAfter("MedicationRequest/").substringBefore("\n")
 
     model.restart()
 
-    val cards = cardsByName(model)
-    cards.values.forEach { card ->
-      assertEquals("—", card.details)
-      assertTrue(!card.isActive)
-    }
+    assertEquals(FlowPhase.PROPOSAL, model.phase.value)
+    cards(model).values.forEach { assertEquals("—", it.details) }
+
+    // CPGMedicationRequest maps a revoked request onto R4's "stopped".
+    val order = repository.read("MedicationRequest", orderId) as MedicationRequest
+    assertEquals(MedicationRequest.MedicationrequestStatus.Stopped, order.status.value)
+
+    model.start(FlowPhase.PROPOSAL)
+    assertTrue(cards(model).getValue(FlowPhase.PROPOSAL).details.contains("Intent : proposal"))
   }
+
+  /** An apple order the patient is already on, as the plan's applicability condition looks for. */
+  private fun activeAppleOrder() = MedicationRequest(
+    id = "existing-apple-order",
+    status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
+    intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Order),
+    medication = MedicationRequest.Medication.CodeableConcept(CodeableConcept(text = FhirString(value = "Apple"))),
+    subject = Reference(reference = FhirString(value = "Patient/${MEDICATION_DISPENSE.patientId}")),
+  )
 }

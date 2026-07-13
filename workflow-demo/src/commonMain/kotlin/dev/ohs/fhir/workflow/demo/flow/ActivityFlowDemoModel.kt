@@ -1,89 +1,166 @@
 package dev.ohs.fhir.workflow.demo.flow
 
+import dev.ohs.fhir.model.r4.Dosage
 import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.workflow.activity.ActivityFlow
 import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.resource.event.CPGEventResource
 import dev.ohs.fhir.workflow.activity.resource.event.CPGMedicationDispenseEvent
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
+import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.Json
+
+/** The phases the demo walks through, in order. [NONE] means the flow has run to completion. */
+enum class FlowPhase {
+  INITIALIZE,
+  PROPOSAL,
+  PLAN,
+  ORDER,
+  PERFORM,
+  NONE,
+}
 
 /** A single phase's rendering in the demo UI. */
-data class PhaseCard(val name: String, val details: String, val isActive: Boolean)
+data class PhaseCard(val phase: FlowPhase, val details: String, val isActive: Boolean)
 
 /**
- * Owns the demo's [ActivityFlow] lifecycle: seeds a medication proposal, walks it through
- * plan/order/perform, and renders each phase's resource for display.
+ * Owns the demo's [ActivityFlow] lifecycle: installs the knowledge artifacts, generates a proposal
+ * by running `PlanDefinition/$apply` over them, walks it through plan/order/perform, and renders
+ * each phase's resource for display.
  */
-class ActivityFlowDemoModel(private val repository: WorkflowRepository) {
+class ActivityFlowDemoModel(
+  private val repository: WorkflowRepository,
+  private val configuration: DemoConfiguration = MEDICATION_DISPENSE,
+  private val proposalHandler: ProposalCreationHandler = ProposalCreationHandler(repository),
+) {
   private var activityFlow: ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>? = null
   private var handler: ActivityHandler? = null
-  private var currentPhaseName: Phase.PhaseName? = null
 
   private var proposal: CPGMedicationRequest? = null
   private var plan: CPGMedicationRequest? = null
   private var order: CPGMedicationRequest? = null
   private var event: CPGMedicationDispenseEvent? = null
 
-  suspend fun createProposal(patientId: String) {
-    val created = ProposalFactory.medicationProposal(patientId)
-    repository.create(created.resource)
+  private val _phase = MutableStateFlow(FlowPhase.INITIALIZE)
+  val phase: StateFlow<FlowPhase> = _phase.asStateFlow()
 
-    activityFlow = ActivityFlow.of(repository, created)
-    handler = ActivityHandler(requireNotNull(activityFlow))
-    currentPhaseName = Phase.PhaseName.PROPOSAL
+  private val _progress = MutableStateFlow(false)
+  val progress: StateFlow<Boolean> = _progress.asStateFlow()
 
-    proposal = created
-    plan = null
-    order = null
-    event = null
+  private val _cards = MutableStateFlow(phaseCards())
+  val cards: StateFlow<List<PhaseCard>> = _cards.asStateFlow()
+
+  /** Whether the knowledge artifacts are installed, i.e. whether Initialize still has work to do. */
+  val initialized: StateFlow<Boolean>
+    get() = _initialized.asStateFlow()
+
+  private val _initialized = MutableStateFlow(false)
+
+  /** Picks up where a previous run left off — the repository may already hold the artifacts. */
+  suspend fun refresh() = withProgress {
+    val installed = proposalHandler.checkInstalledDependencies(configuration)
+    _initialized.value = installed
+    _phase.value = if (installed) FlowPhase.PROPOSAL else FlowPhase.INITIALIZE
   }
 
-  suspend fun advance() {
-    val handler = requireNotNull(handler) { "Call createProposal before advancing." }
+  suspend fun installDependencies() = withProgress {
+    proposalHandler.installDependencies(configuration)
+    _initialized.value = true
+    _phase.value = FlowPhase.PROPOSAL
+  }
 
-    when (currentPhaseName) {
-      Phase.PhaseName.PROPOSAL -> {
-        handler.prepareAndInitiatePlan().getOrThrow()
-        currentPhaseName = Phase.PhaseName.PLAN
-        plan = currentRequestResource()
+  /** Runs the given phase; only the currently active phase is startable from the UI. */
+  suspend fun start(phase: FlowPhase) = withProgress {
+    when (phase) {
+      FlowPhase.INITIALIZE -> {
+        proposalHandler.installDependencies(configuration)
+        _initialized.value = true
+        _phase.value = FlowPhase.PROPOSAL
       }
-      Phase.PhaseName.PLAN -> {
-        handler.prepareAndInitiateOrder().getOrThrow()
-        currentPhaseName = Phase.PhaseName.ORDER
-        order = currentRequestResource()
-      }
-      Phase.PhaseName.ORDER -> {
-        handler.prepareAndInitiatePerform().getOrThrow()
-        currentPhaseName = Phase.PhaseName.PERFORM
-        event = currentEventResource()
-      }
-      Phase.PhaseName.PERFORM, null -> Unit
+      FlowPhase.PROPOSAL -> createProposal()
+      FlowPhase.PLAN -> advance(FlowPhase.ORDER) { requireHandler().prepareAndInitiatePlan() }
+      FlowPhase.ORDER -> advance(FlowPhase.PERFORM) { requireHandler().prepareAndInitiateOrder() }
+      FlowPhase.PERFORM -> advance(FlowPhase.NONE) { requireHandler().prepareAndInitiatePerform() }
+      FlowPhase.NONE -> Unit
     }
-
-    // Advancing a phase completes the resource it was based on (e.g. initiating the order
-    // completes the plan), so refresh every request resource we already know about from the
-    // repository rather than relying on stale in-memory copies.
-    proposal = proposal?.let { refresh(it) }
-    plan = plan?.let { refresh(it) }
-    order = order?.let { refresh(it) }
   }
 
-  fun phaseCards(): List<PhaseCard> = listOf(
-    PhaseCard("PROPOSAL", requestDetails(proposal), currentPhaseName == Phase.PhaseName.PROPOSAL),
-    PhaseCard("PLAN", requestDetails(plan), currentPhaseName == Phase.PhaseName.PLAN),
-    PhaseCard("ORDER", requestDetails(order), currentPhaseName == Phase.PhaseName.ORDER),
-    PhaseCard("PERFORM", eventDetails(event), currentPhaseName == Phase.PhaseName.PERFORM),
-  )
+  /**
+   * Abandons the flow and starts over. Its unfinished requests are revoked rather than left behind:
+   * they are still live requests against the patient, and the plan's applicability condition reads
+   * the patient's requests when deciding whether to propose again. [WorkflowRepository] has no
+   * delete, and revoking is the FHIR-correct way to retire a request anyway.
+   */
+  suspend fun restart() = withProgress {
+    listOfNotNull(proposal, plan, order)
+      .filter { it.getStatus() != Status.COMPLETED }
+      .forEach { repository.update(it.apply { setStatus(Status.REVOKED) }.resource) }
 
-  suspend fun restart() {
     activityFlow = null
     handler = null
-    currentPhaseName = null
     proposal = null
     plan = null
     order = null
     event = null
+    _phase.value = if (_initialized.value) FlowPhase.PROPOSAL else FlowPhase.INITIALIZE
+  }
+
+  private suspend fun createProposal() {
+    val generated = proposalHandler.generateProposal(configuration)
+      ?: error("\$apply generated no proposal: the plan's applicability condition rejected the patient.")
+
+    activityFlow = ActivityFlow.of(repository, generated)
+    handler = ActivityHandler(requireNotNull(activityFlow))
+    proposal = generated
+    plan = null
+    order = null
+    event = null
+    _phase.value = FlowPhase.PLAN
+  }
+
+  /** Runs a phase transition, then records the resource it produced and the phase it unlocks. */
+  private suspend fun advance(next: FlowPhase, transition: suspend () -> Result<Unit>) {
+    transition().getOrThrow()
+
+    when (next) {
+      FlowPhase.ORDER -> plan = currentRequestResource()
+      FlowPhase.PERFORM -> order = currentRequestResource()
+      else -> event = currentEventResource()
+    }
+
+    // A transition completes the resource it was based on (initiating the order completes the
+    // plan), so refresh the requests we already know about rather than keep stale copies.
+    proposal = proposal?.let { refresh(it) }
+    plan = plan?.let { refresh(it) }
+    order = order?.let { refresh(it) }
+    _phase.value = next
+  }
+
+  private fun requireHandler() =
+    requireNotNull(handler) { "Create the proposal before advancing the flow." }
+
+  private suspend fun <T> withProgress(block: suspend () -> T): T {
+    _progress.value = true
+    try {
+      return block()
+    } finally {
+      _cards.value = phaseCards()
+      _progress.value = false
+    }
+  }
+
+  private fun phaseCards(): List<PhaseCard> {
+    val active = _phase.value
+    return listOf(
+      PhaseCard(FlowPhase.PROPOSAL, requestDetails(proposal), active == FlowPhase.PROPOSAL),
+      PhaseCard(FlowPhase.PLAN, requestDetails(plan), active == FlowPhase.PLAN),
+      PhaseCard(FlowPhase.ORDER, requestDetails(order), active == FlowPhase.ORDER),
+      PhaseCard(FlowPhase.PERFORM, eventDetails(event), active == FlowPhase.PERFORM),
+    )
   }
 
   @Suppress("UNCHECKED_CAST")
@@ -103,19 +180,30 @@ class ActivityFlowDemoModel(private val repository: WorkflowRepository) {
   private fun requestDetails(request: CPGMedicationRequest?): String {
     if (request == null) return "—"
     return listOf(
-      "ID: ${request.logicalId}",
-      "Intent: ${request.getIntent().code}",
-      "Status: ${request.getStatus()}",
+      "ID     : ${request.resourceType}/${request.logicalId}",
+      "Intent : ${request.getIntent().code}",
+      "Status : ${request.getStatus()}",
       "BasedOn: ${request.getBasedOn()?.reference?.value ?: "—"}",
+      "",
+      "Additional Info: ${dosage(request.resource.dosageInstruction)}",
     ).joinToString("\n")
   }
 
   private fun eventDetails(event: CPGMedicationDispenseEvent?): String {
     if (event == null) return "—"
     return listOf(
-      "ID: ${event.logicalId}",
-      "Status: ${event.getStatus()}",
+      "ID     : ${event.resourceType}/${event.logicalId}",
+      "Status : ${event.getStatus()}",
       "BasedOn: ${event.getBasedOn()?.reference?.value ?: "—"}",
     ).joinToString("\n")
   }
+
+  private fun dosage(dosageInstruction: List<Dosage>): String =
+    dosageInstruction.firstOrNull()?.let { detailsJson.encodeToString(Dosage.serializer(), it) } ?: "—"
+}
+
+private val detailsJson = Json {
+  prettyPrint = true
+  encodeDefaults = false
+  explicitNulls = false
 }
