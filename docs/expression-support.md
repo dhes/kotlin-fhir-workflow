@@ -87,12 +87,13 @@ It helps to separate them, because FHIRPath, CQL, and StructureMap do not all si
 
 ## StructureMap — where it fits, and why it's deferred
 
-StructureMap is the **transform** axis. In OpenSRP it did two distinct jobs:
+StructureMap is the **transform** axis. In FHIR tooling it shows up in two distinct jobs:
 
 1. **Questionnaire extraction (`$extract`)** — transform a `QuestionnaireResponse` into resources. A
    form-extraction concern, unrelated to `$apply`.
-2. **CarePlan/Task generation (`$lite`)** — an action's `transform` StructureMap built the CarePlan's
-   `Task`s from a source (`ActivityDefinition` + data).
+2. **Resource generation via `ActivityDefinition.transform` / `action.transform`** — a StructureMap
+   builds the request resource(s) from a source (`ActivityDefinition` + data), an alternative to
+   field-copy instantiation.
 
 This library replaces the common case of (2) with **kind-aware instantiation + FHIRPath
 `dynamicValue`**: a known request type whose fields are set by value. StructureMap's *unique* value is
