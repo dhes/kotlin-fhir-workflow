@@ -4,6 +4,7 @@ import dev.ohs.fhir.model.r4.Code
 import dev.ohs.fhir.model.r4.CodeableConcept
 import dev.ohs.fhir.model.r4.Coding
 import dev.ohs.fhir.model.r4.Communication
+import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.workflow.activity.resource.request.CPGCommunicationRequest
@@ -35,6 +36,9 @@ class CPGCommunicationEvent(resource: Communication) : CPGEventResource<Communic
           id = Uuid.random().toString(),
           status = Enumeration(value = Communication.EventStatus.Preparation),
           category = src.category,
+          priority = src.priority?.value?.getCode()?.let {
+            Enumeration(value = Communication.RequestPriority.fromCode(it))
+          },
           medium = src.medium,
           subject = src.subject,
           about = src.about,
@@ -43,6 +47,18 @@ class CPGCommunicationEvent(resource: Communication) : CPGEventResource<Communic
           sender = src.sender,
           reasonCode = src.reasonCode,
           reasonReference = src.reasonReference,
+          payload = src.payload.map { p ->
+            Communication.Payload(
+              content = when (val c = p.content) {
+                is CommunicationRequest.Payload.Content.String ->
+                  Communication.Payload.Content.String(c.value)
+                is CommunicationRequest.Payload.Content.Attachment ->
+                  Communication.Payload.Content.Attachment(c.value)
+                is CommunicationRequest.Payload.Content.Reference ->
+                  Communication.Payload.Content.Reference(c.value)
+              },
+            )
+          },
         ),
       )
     }

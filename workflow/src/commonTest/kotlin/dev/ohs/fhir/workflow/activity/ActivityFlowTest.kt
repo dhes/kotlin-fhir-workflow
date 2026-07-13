@@ -2,7 +2,10 @@ package dev.ohs.fhir.workflow.activity
 
 import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
+import dev.ohs.fhir.model.r4.Reference
+import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
+import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.phase.event.PerformPhase
 import dev.ohs.fhir.workflow.activity.phase.request.ProposalPhase
 import dev.ohs.fhir.workflow.activity.resource.event.CPGTaskEvent
@@ -13,6 +16,7 @@ import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ActivityFlowTest {
@@ -63,5 +67,60 @@ class ActivityFlowTest {
     perform.shouldBeInstanceOf<PerformPhase<CPGTaskEvent>>()
     assertTrue(perform.start().isSuccess)
     assertTrue(perform.complete().isSuccess)
+  }
+
+  @Test
+  fun shouldReturnPriorPhasesWhenPlanBasedOnProposal() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val proposal = CPGCommunicationRequest(
+      CommunicationRequest(id = "cr-prop", status = Enumeration(value = CommunicationRequest.RequestStatus.Active)),
+    ).apply { setIntent(Intent.PROPOSAL) }
+    repo.create(proposal.resource)
+
+    val plan = CPGCommunicationRequest(
+      CommunicationRequest(
+        id = "cr-plan",
+        status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+        basedOn = listOf(Reference(reference = FhirString(value = "CommunicationRequest/cr-prop"))),
+      ),
+    ).apply { setIntent(Intent.PLAN) }
+    repo.create(plan.resource)
+
+    val previous = ActivityFlow.of(repo, plan).getPreviousPhases()
+
+    assertEquals(1, previous.size)
+    assertEquals(Phase.PhaseName.PROPOSAL, previous.single().getPhaseName())
+    assertEquals("cr-prop", previous.single().getRequestResource().logicalId)
+  }
+
+  @Test
+  fun shouldReturnActiveFlowsForPatientAndSkipCompleted() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    repo.registerReferenceIndex("CommunicationRequest", "subject") {
+      listOf((it as CommunicationRequest).subject?.reference?.value ?: "")
+    }
+
+    val active = CPGCommunicationRequest(
+      CommunicationRequest(
+        id = "cr-active",
+        status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+        subject = Reference(reference = FhirString(value = "Patient/p1")),
+      ),
+    ).apply { setIntent(Intent.PROPOSAL) }
+    repo.create(active.resource)
+
+    val completed = CPGCommunicationRequest(
+      CommunicationRequest(
+        id = "cr-done",
+        status = Enumeration(value = CommunicationRequest.RequestStatus.Completed),
+        subject = Reference(reference = FhirString(value = "Patient/p1")),
+      ),
+    ).apply { setIntent(Intent.PROPOSAL) }
+    repo.create(completed.resource)
+
+    val flows = ActivityFlow.of(repo, "p1")
+
+    assertEquals(1, flows.size)
+    flows.single().getCurrentPhase().shouldBeInstanceOf<ProposalPhase<*>>()
   }
 }

@@ -44,7 +44,7 @@ class CPGMedicationDispenseEvent(resource: MedicationDispense) :
           id = Uuid.random().toString(),
           status = Enumeration(value = MedicationDispense.MedicationDispenseStatusCodes.Preparation),
           medication = medReqToDispenseMedication(src.medication),
-          category = src.category.firstOrNull(),
+          category = src.category.singleOrNull(),
           subject = src.subject,
           context = src.encounter,
           note = src.note,
