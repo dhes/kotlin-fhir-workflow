@@ -16,6 +16,9 @@ interface WorkflowRepository {
 
   suspend fun update(resource: Resource)
 
+  /** @param type resource type name, e.g. "MedicationRequest". */
+  suspend fun delete(type: String, id: String)
+
   /** Search a resource type by a reference search param, e.g. type="Immunization", param="patient", referenceValue="Patient/p1". */
   suspend fun searchByReferenceParam(type: String, param: String, referenceValue: String): List<Resource>
 

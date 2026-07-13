@@ -59,7 +59,7 @@ class ActivityFlowDemoModelTest {
   }
 
   @Test
-  fun shouldWalkProposalThroughPlanOrderAndACompletedPerform() = runTest {
+  fun shouldWalkProposalThroughPlanOrderAndPerform() = runTest {
     val model = newModel()
     model.installDependencies()
     model.start(FlowPhase.PROPOSAL)
@@ -74,9 +74,10 @@ class ActivityFlowDemoModelTest {
     assertTrue(phaseCards.getValue(FlowPhase.ORDER).details.contains("Intent : order"))
     assertTrue(phaseCards.getValue(FlowPhase.PLAN).details.contains("Status : COMPLETED"))
 
+    // The dispense is initiated, not carried through to completion — as android-fhir's demo leaves it.
     model.start(FlowPhase.PERFORM)
     phaseCards = cards(model)
-    assertTrue(phaseCards.getValue(FlowPhase.PERFORM).details.contains("Status : COMPLETED"))
+    assertTrue(phaseCards.getValue(FlowPhase.PERFORM).details.contains("Status : PREPARATION"))
     assertTrue(phaseCards.getValue(FlowPhase.ORDER).details.contains("Status : COMPLETED"))
     assertEquals(FlowPhase.NONE, model.phase.value)
   }
@@ -105,7 +106,7 @@ class ActivityFlowDemoModelTest {
   }
 
   @Test
-  fun shouldNotResumeARevokedFlowWhenRelaunched() = runTest {
+  fun shouldNotResumeARestartedFlowWhenRelaunched() = runTest {
     val repository = InMemoryDemoRepository()
     val abandoned = newModel(repository)
     abandoned.installDependencies()
@@ -132,28 +133,29 @@ class ActivityFlowDemoModelTest {
   }
 
   @Test
-  fun shouldRevokeOutstandingRequestsWhenRestarted() = runTest {
+  fun shouldDeleteTheFlowsResourcesWhenRestarted() = runTest {
     val repository = InMemoryDemoRepository()
     val model = newModel(repository)
     model.installDependencies()
     model.start(FlowPhase.PROPOSAL)
     model.start(FlowPhase.PLAN)
     model.start(FlowPhase.ORDER)
-    val orderId = requireNotNull(model.cards.value.first { it.phase == FlowPhase.ORDER }.details)
-      .substringAfter("MedicationRequest/").substringBefore("\n")
+    val orderId = idOf(model, FlowPhase.ORDER)
 
     model.restart()
 
     assertEquals(FlowPhase.PROPOSAL, model.phase.value)
     cards(model).values.forEach { assertEquals("—", it.details) }
-
-    // CPGMedicationRequest maps a revoked request onto R4's "stopped".
-    val order = repository.read("MedicationRequest", orderId) as MedicationRequest
-    assertEquals(MedicationRequest.MedicationrequestStatus.Stopped, order.status.value)
+    assertEquals(null, repository.read("MedicationRequest", orderId))
 
     model.start(FlowPhase.PROPOSAL)
     assertTrue(cards(model).getValue(FlowPhase.PROPOSAL).details.contains("Intent : proposal"))
   }
+
+  private fun idOf(model: ActivityFlowDemoModel, phase: FlowPhase) =
+    model.cards.value.first { it.phase == phase }.details
+      .substringAfter("MedicationRequest/")
+      .substringBefore("\n")
 
   /** An apple order the patient is already on, as the plan's applicability condition looks for. */
   private fun activeAppleOrder() = MedicationRequest(

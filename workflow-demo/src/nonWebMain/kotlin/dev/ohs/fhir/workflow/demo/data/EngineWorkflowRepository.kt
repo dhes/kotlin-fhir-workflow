@@ -17,6 +17,8 @@ class EngineWorkflowRepository(private val engine: FhirEngine) : WorkflowReposit
 
   override suspend fun update(resource: Resource) = engine.update(resource)
 
+  override suspend fun delete(type: String, id: String) = engine.delete(ResourceType.fromCode(type), id)
+
   override suspend fun searchByReferenceParam(
     type: String,
     param: String,

@@ -39,6 +39,10 @@ class InMemoryWorkflowRepository : WorkflowRepository {
     store["${resource.resourceTypeName()}/$id"] = resource
   }
 
+  override suspend fun delete(type: String, id: String) {
+    store.remove("$type/$id")
+  }
+
   override suspend fun searchByReferenceParam(type: String, param: String, referenceValue: String): List<Resource> {
     val extractor = referenceIndex["$type|$param"] ?: return emptyList()
     return store.values.filter { it.resourceTypeName() == type && extractor(it).contains(referenceValue) }

@@ -31,6 +31,10 @@ class InMemoryDemoRepository : WorkflowRepository {
     resources["${typeOf(resource)}/$id"] = resource
   }
 
+  override suspend fun delete(type: String, id: String) {
+    resources.remove("$type/$id")
+  }
+
   override suspend fun searchByReferenceParam(
     type: String,
     param: String,

@@ -34,9 +34,7 @@ class ActivityHandler(
     activateCurrentRequest()
     val preparedEvent =
       activityFlow.preparePerform<CPGMedicationDispenseEvent>("CPGMedicationDispenseEvent").getOrThrow()
-    val performPhase = activityFlow.initiatePerform(preparedEvent).getOrThrow()
-    performPhase.start().getOrThrow()
-    performPhase.complete().getOrThrow()
+    activityFlow.initiatePerform(preparedEvent).getOrThrow()
   }
 
   @Suppress("UNCHECKED_CAST")

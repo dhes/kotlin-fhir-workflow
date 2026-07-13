@@ -78,13 +78,12 @@ class ActivityFlowDemoModel(
 
   /**
    * Rebuilds the flow from the patient's persisted requests and returns the phase it left off at, or
-   * null when there is nothing to resume. A revoked flow is one the user restarted away from, so it
-   * is left where it is.
+   * null when there is nothing to resume.
    */
   @Suppress("UNCHECKED_CAST")
   private suspend fun resumeFlow(): FlowPhase? {
     val resumed = ActivityFlow.of(repository, configuration.patientId)
-      .firstOrNull { !it.isRevoked() } as? ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>
+      .firstOrNull() as? ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>
       ?: return null
 
     activityFlow = resumed
@@ -117,9 +116,6 @@ class ActivityFlowDemoModel(
     }
   }
 
-  private fun ActivityFlow<*, *>.isRevoked(): Boolean =
-    (getCurrentPhase() as? Phase.RequestPhase<*>)?.getRequestResource()?.getStatus() == Status.REVOKED
-
   suspend fun installDependencies() = withProgress {
     proposalHandler.installDependencies(configuration)
     _initialized.value = true
@@ -143,15 +139,15 @@ class ActivityFlowDemoModel(
   }
 
   /**
-   * Abandons the flow and starts over. Its unfinished requests are revoked rather than left behind:
-   * they are still live requests against the patient, and the plan's applicability condition reads
-   * the patient's requests when deciding whether to propose again. [WorkflowRepository] has no
-   * delete, and revoking is the FHIR-correct way to retire a request anyway.
+   * Abandons the flow and starts over, deleting the resources it created: they are requests against
+   * the patient, and the plan's applicability condition reads the patient's requests when deciding
+   * whether to propose again.
    */
   suspend fun restart() = withProgress {
-    listOfNotNull(proposal, plan, order)
-      .filter { it.getStatus() != Status.COMPLETED }
-      .forEach { repository.update(it.apply { setStatus(Status.REVOKED) }.resource) }
+    listOfNotNull(proposal, plan, order).forEach { request ->
+      request.logicalId?.let { repository.delete(request.resourceType, it) }
+    }
+    event?.let { dispense -> dispense.logicalId?.let { repository.delete(dispense.resourceType, it) } }
 
     activityFlow = null
     handler = null
