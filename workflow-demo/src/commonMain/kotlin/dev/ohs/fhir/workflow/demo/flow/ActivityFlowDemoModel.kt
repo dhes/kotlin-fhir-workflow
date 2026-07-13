@@ -7,6 +7,7 @@ import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.resource.event.CPGEventResource
 import dev.ohs.fhir.workflow.activity.resource.event.CPGMedicationDispenseEvent
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
+import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
 import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,12 +61,64 @@ class ActivityFlowDemoModel(
 
   private val _initialized = MutableStateFlow(false)
 
-  /** Picks up where a previous run left off — the repository may already hold the artifacts. */
+  /**
+   * Picks up where a previous run left off: the repository may already hold the knowledge artifacts,
+   * and a flow left half-finished is reconstructed from the requests it persisted, so the demo
+   * resumes at the phase it was on rather than starting over.
+   */
   suspend fun refresh() = withProgress {
     val installed = proposalHandler.checkInstalledDependencies(configuration)
     _initialized.value = installed
-    _phase.value = if (installed) FlowPhase.PROPOSAL else FlowPhase.INITIALIZE
+    if (!installed) {
+      _phase.value = FlowPhase.INITIALIZE
+      return@withProgress
+    }
+    _phase.value = resumeFlow() ?: FlowPhase.PROPOSAL
   }
+
+  /**
+   * Rebuilds the flow from the patient's persisted requests and returns the phase it left off at, or
+   * null when there is nothing to resume. A revoked flow is one the user restarted away from, so it
+   * is left where it is.
+   */
+  @Suppress("UNCHECKED_CAST")
+  private suspend fun resumeFlow(): FlowPhase? {
+    val resumed = ActivityFlow.of(repository, configuration.patientId)
+      .firstOrNull { !it.isRevoked() } as? ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>
+      ?: return null
+
+    activityFlow = resumed
+    handler = ActivityHandler(resumed)
+
+    resumed.getPreviousPhases().forEach { record(it.getPhaseName(), it.getRequestResource()) }
+    when (val current = resumed.getCurrentPhase()) {
+      is Phase.EventPhase<*> -> event = current.getEventResource() as? CPGMedicationDispenseEvent
+      is Phase.RequestPhase<*> -> record(current.getPhaseName(), current.getRequestResource())
+      else -> Unit
+    }
+
+    // The phase to run next is the first one the flow has no resource for, as upstream does.
+    return when {
+      proposal == null -> FlowPhase.PROPOSAL
+      plan == null -> FlowPhase.PLAN
+      order == null -> FlowPhase.ORDER
+      event == null -> FlowPhase.PERFORM
+      else -> FlowPhase.NONE
+    }
+  }
+
+  private fun record(phase: Phase.PhaseName, request: CPGRequestResource<*>?) {
+    val medicationRequest = request as? CPGMedicationRequest ?: return
+    when (phase) {
+      Phase.PhaseName.PROPOSAL -> proposal = medicationRequest
+      Phase.PhaseName.PLAN -> plan = medicationRequest
+      Phase.PhaseName.ORDER -> order = medicationRequest
+      else -> Unit
+    }
+  }
+
+  private fun ActivityFlow<*, *>.isRevoked(): Boolean =
+    (getCurrentPhase() as? Phase.RequestPhase<*>)?.getRequestResource()?.getStatus() == Status.REVOKED
 
   suspend fun installDependencies() = withProgress {
     proposalHandler.installDependencies(configuration)

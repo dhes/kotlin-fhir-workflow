@@ -82,6 +82,45 @@ class ActivityFlowDemoModelTest {
   }
 
   @Test
+  fun shouldResumeAHalfFinishedFlowWhenRelaunched() = runTest {
+    val repository = InMemoryDemoRepository()
+    val abandoned = newModel(repository)
+    abandoned.installDependencies()
+    abandoned.start(FlowPhase.PROPOSAL)
+    abandoned.start(FlowPhase.PLAN)
+
+    // A fresh model over the same repository, as a relaunched app would be.
+    val relaunched = newModel(repository)
+    relaunched.refresh()
+
+    assertEquals(FlowPhase.ORDER, relaunched.phase.value)
+    val resumed = cards(relaunched)
+    assertTrue(resumed.getValue(FlowPhase.PROPOSAL).details.contains("Intent : proposal"))
+    assertTrue(resumed.getValue(FlowPhase.PLAN).details.contains("Intent : plan"))
+    assertTrue(resumed.getValue(FlowPhase.ORDER).isActive)
+
+    // And it can be driven on from there.
+    relaunched.start(FlowPhase.ORDER)
+    assertTrue(cards(relaunched).getValue(FlowPhase.ORDER).details.contains("Intent : order"))
+  }
+
+  @Test
+  fun shouldNotResumeARevokedFlowWhenRelaunched() = runTest {
+    val repository = InMemoryDemoRepository()
+    val abandoned = newModel(repository)
+    abandoned.installDependencies()
+    abandoned.start(FlowPhase.PROPOSAL)
+    abandoned.start(FlowPhase.PLAN)
+    abandoned.restart()
+
+    val relaunched = newModel(repository)
+    relaunched.refresh()
+
+    assertEquals(FlowPhase.PROPOSAL, relaunched.phase.value)
+    cards(relaunched).values.forEach { assertEquals("—", it.details) }
+  }
+
+  @Test
   fun shouldSuppressProposalWhenThePatientAlreadyHasAnActiveOrder() = runTest {
     val repository = InMemoryDemoRepository()
     val handler = ProposalCreationHandler(repository)
