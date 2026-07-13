@@ -43,12 +43,10 @@ private val elementJson = Json { encodeDefaults = false; explicitNulls = false }
 /**
  * Converts an evaluated FHIRPath result into a [JsonElement] for dynamicValue write-back.
  *
- * DELIBERATE COPY of `dev.ohs.fhir.datacapture.fhirpath.FhirPathService.toJsonElement`. The
- * `:workflow` library must not depend on `fhir-data-capture` (a consumer-level SDC library —
- * that inverts the dependency graph); `fhir-path` is the wrong home (it does ANTLR parsing +
- * evaluation, not model↔JSON); and a new shared module is not worth ~60 lines of serializer
- * dispatch. The `when` only exists because KMP has no reflection for `value::class.serializer()`.
- * If this duplication ever bites, extract it into a shared low-level module.
+ * The `when` dispatches per FHIR datatype rather than resolving a serializer generically because KMP
+ * has no reflection to do `value::class.serializer()` on wasm/native. The datatype set is finite, so
+ * this is bounded, mechanical boilerplate, kept self-contained so the library depends only on
+ * `fhir-model` + `fhir-path`. An unsupported result type throws rather than being silently coerced.
  */
 internal fun evaluatedValueToJson(value: Any): JsonElement =
   primitiveOrNull(value)

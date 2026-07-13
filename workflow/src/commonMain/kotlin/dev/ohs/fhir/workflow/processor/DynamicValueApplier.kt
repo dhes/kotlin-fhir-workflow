@@ -10,8 +10,7 @@ import kotlinx.serialization.json.JsonObject
  *
  * The workflow library cannot set a value at a runtime path string with a reflective mutator — there
  * is no HAPI `TerserUtil` equivalent, and KMP has no reflection on wasm/native — so `$apply` applies
- * dynamicValues by round-tripping the generated resource through JSON. This mirrors how the SDC
- * `TemplateTreeProcessor` substitutes template values.
+ * dynamicValues by round-tripping the generated resource through JSON.
  *
  * Path contract:
  * - list segments carry an explicit index: `dosageInstruction[0].timing.repeat.frequency`
