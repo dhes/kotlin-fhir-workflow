@@ -26,7 +26,7 @@ class EvaluatedValueJsonTest {
     val json = evaluatedValueToJson(cc)
     assertTrue(json is JsonObject)
     val code =
-      (json as JsonObject)["coding"]!!.jsonArray.first().jsonObject["code"]!!.jsonPrimitive.content
+      json["coding"]!!.jsonArray.first().jsonObject["code"]!!.jsonPrimitive.content
     assertEquals("BCG", code)
   }
 
