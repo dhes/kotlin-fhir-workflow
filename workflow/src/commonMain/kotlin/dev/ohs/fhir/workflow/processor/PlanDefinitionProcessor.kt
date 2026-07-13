@@ -7,6 +7,7 @@ import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.Expression
 import dev.ohs.fhir.model.r4.MedicationRequest
+import dev.ohs.fhir.model.r4.Meta
 import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.RequestGroup
@@ -126,10 +127,11 @@ class PlanDefinitionProcessor(
   /**
    * Instantiates a proposal-intent request resource from the action's referenced
    * [ActivityDefinition], choosing the concrete type from its `kind` (MedicationRequest,
-   * ServiceRequest, CommunicationRequest, or Task as the default). Static fields (`code`, medication
-   * `product`) are copied, and `dynamicValue` expressions from both the [ActivityDefinition] and the
-   * action are evaluated and written back (the action's overriding the ActivityDefinition's on
-   * matching paths). Returns null when the action has no resolvable definition.
+   * ServiceRequest, CommunicationRequest, or Task as the default). Static fields (`profile`, `code`,
+   * medication `product`, `priority` and `dosage`) are copied, and `dynamicValue` expressions from
+   * both the [ActivityDefinition] and the action are evaluated and written back (the action's
+   * overriding the ActivityDefinition's on matching paths). Returns null when the action has no
+   * resolvable definition.
    */
   private suspend fun instantiateRequest(
     planDefinition: PlanDefinition,
@@ -145,15 +147,19 @@ class PlanDefinitionProcessor(
       ActivityDefinition.RequestResourceType.MedicationRequest ->
         MedicationRequest(
           id = id,
+          meta = metaFrom(ad),
           status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
           intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Proposal),
+          priority = priorityFrom(ad),
           medication = medicationFrom(ad),
           subject = subject,
           basedOn = listOf(basedOn),
+          dosageInstruction = ad.dosage,
         )
       ActivityDefinition.RequestResourceType.ServiceRequest ->
         ServiceRequest(
           id = id,
+          meta = metaFrom(ad),
           status = Enumeration(value = ServiceRequest.RequestStatus.Active),
           intent = Enumeration(value = ServiceRequest.RequestIntent.Proposal),
           code = ad.code,
@@ -163,6 +169,7 @@ class PlanDefinitionProcessor(
       ActivityDefinition.RequestResourceType.CommunicationRequest ->
         CommunicationRequest(
           id = id,
+          meta = metaFrom(ad),
           status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
           subject = subject,
           basedOn = listOf(basedOn),
@@ -170,6 +177,7 @@ class PlanDefinitionProcessor(
       else ->
         Task(
           id = id,
+          meta = metaFrom(ad),
           status = Enumeration(value = Task.TaskStatus.Requested),
           intent = Enumeration(value = Task.TaskIntent.Proposal),
           code = ad.code,
@@ -216,6 +224,15 @@ class PlanDefinitionProcessor(
         )
       is EvaluationResult.Failure ->
         throw IllegalStateException("dynamicValue failed to evaluate: ${result.message}")
+    }
+
+  /** Carries the ActivityDefinition's declared profile (e.g. a CPG request profile) onto the request. */
+  private fun metaFrom(ad: ActivityDefinition): Meta? =
+    ad.profile?.let { Meta(profile = listOf(it)) }
+
+  private fun priorityFrom(ad: ActivityDefinition): Enumeration<MedicationRequest.RequestPriority>? =
+    ad.priority?.value?.getCode()?.let {
+      Enumeration(value = MedicationRequest.RequestPriority.fromCode(it))
     }
 
   private fun medicationFrom(ad: ActivityDefinition): MedicationRequest.Medication =

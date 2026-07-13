@@ -232,6 +232,29 @@ class PlanDefinitionProcessorTest {
   }
 
   @Test
+  fun shouldCopyProfilePriorityAndDosageWhenActivityDefinitionDeclaresThem() = runTest {
+    val repo = InMemoryWorkflowRepository()
+    val profile = "http://hl7.org/fhir/uv/cpg/StructureDefinition/cpg-medicationrequest"
+    val pd = repo.planForKind(
+      ActivityDefinition.RequestResourceType.MedicationRequest,
+      profile = Canonical(value = profile),
+      priority = ActivityDefinition.RequestPriority.Routine,
+      dosage = listOf(Dosage(text = FhirString(value = "One apple a day"))),
+    )
+    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+    val carePlan = processor.apply(pd, ctx)
+
+    val medicationRequest = carePlan.contained.filterIsInstance<MedicationRequest>().single()
+    assertEquals(listOf(profile), medicationRequest.meta?.profile?.map { it.value })
+    assertEquals(MedicationRequest.RequestPriority.Routine, medicationRequest.priority?.value)
+    assertEquals(
+      listOf("One apple a day"),
+      medicationRequest.dosageInstruction.map { it.text?.value },
+    )
+  }
+
+  @Test
   fun shouldInstantiateServiceRequestWhenKindIsServiceRequest() = runTest {
     val repo = InMemoryWorkflowRepository()
     val pd = repo.planForKind(ActivityDefinition.RequestResourceType.ServiceRequest)
@@ -375,6 +398,9 @@ class PlanDefinitionProcessorTest {
   private suspend fun InMemoryWorkflowRepository.planForKind(
     kind: ActivityDefinition.RequestResourceType,
     product: ActivityDefinition.Product? = null,
+    profile: Canonical? = null,
+    priority: ActivityDefinition.RequestPriority? = null,
+    dosage: List<Dosage> = listOf(),
   ): PlanDefinition {
     val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-1"
     registerUriIndex("ActivityDefinition", "url") { listOf((it as ActivityDefinition).url?.value ?: "") }
@@ -386,6 +412,9 @@ class PlanDefinitionProcessorTest {
         kind = Enumeration(value = kind),
         code = CodeableConcept(coding = listOf(Coding(code = Code(value = "X")))),
         product = product,
+        profile = profile,
+        priority = priority?.let { Enumeration(value = it) },
+        dosage = dosage,
       ),
     )
     return PlanDefinition(
