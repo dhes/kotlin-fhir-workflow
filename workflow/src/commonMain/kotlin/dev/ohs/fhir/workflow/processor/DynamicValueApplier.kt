@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.processor
 
 import kotlinx.serialization.json.JsonArray
@@ -8,9 +23,9 @@ import kotlinx.serialization.json.JsonObject
  * Sets a value at a FHIR dynamicValue [path] within a resource's JSON tree, creating any missing
  * intermediate objects/arrays.
  *
- * The workflow library cannot set a value at a runtime path string with a reflective mutator — there
- * is no HAPI `TerserUtil` equivalent, and KMP has no reflection on wasm/native — so `$apply` applies
- * dynamicValues by round-tripping the generated resource through JSON.
+ * The workflow library cannot set a value at a runtime path string with a reflective mutator —
+ * there is no HAPI `TerserUtil` equivalent, and KMP has no reflection on wasm/native — so `$apply`
+ * applies dynamicValues by round-tripping the generated resource through JSON.
  *
  * Path contract:
  * - list segments carry an explicit index: `dosageInstruction[0].timing.repeat.frequency`
@@ -25,7 +40,9 @@ internal object DynamicValueApplier {
   }
 
   private sealed interface Segment
+
   private data class Field(val name: String) : Segment
+
   private data class Index(val at: Int) : Segment
 
   private fun parse(path: String): List<Segment> {
@@ -44,7 +61,11 @@ internal object DynamicValueApplier {
     return segments
   }
 
-  private fun setIn(current: JsonElement?, segments: List<Segment>, value: JsonElement): JsonElement =
+  private fun setIn(
+    current: JsonElement?,
+    segments: List<Segment>,
+    value: JsonElement,
+  ): JsonElement =
     when (val head = segments.first()) {
       is Field -> {
         val obj = (current as? JsonObject)?.toMutableMap() ?: mutableMapOf()
@@ -52,6 +73,7 @@ internal object DynamicValueApplier {
         obj[head.name] = if (tail.isEmpty()) value else setIn(obj[head.name], tail, value)
         JsonObject(obj)
       }
+
       is Index -> {
         val arr = (current as? JsonArray)?.toMutableList() ?: mutableListOf()
         while (arr.size <= head.at) arr.add(JsonObject(emptyMap()))

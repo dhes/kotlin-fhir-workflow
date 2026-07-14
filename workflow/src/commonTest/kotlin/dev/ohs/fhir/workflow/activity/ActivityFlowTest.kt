@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.activity
 
 import dev.ohs.fhir.model.r4.CommunicationRequest
@@ -14,18 +29,23 @@ import dev.ohs.fhir.workflow.activity.resource.request.CPGTaskRequest
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class ActivityFlowTest {
   @Test
-  fun `proposal flow can prepare a plan`() = runTest {
+  fun shouldPreparePlanWhenFlowStartsFromProposal() = runTest {
     val repo = InMemoryWorkflowRepository()
-    val request = CPGCommunicationRequest(
-      CommunicationRequest(id = "cr-1", status = Enumeration(value = CommunicationRequest.RequestStatus.Active)),
-    ).apply { setIntent(Intent.PROPOSAL) }
+    val request =
+      CPGCommunicationRequest(
+          CommunicationRequest(
+            id = "cr-1",
+            status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+          )
+        )
+        .apply { setIntent(Intent.PROPOSAL) }
     repo.create(request.resource)
 
     val flow = ActivityFlow.of(repo, request)
@@ -34,15 +54,17 @@ class ActivityFlowTest {
   }
 
   @Test
-  fun `task request flow starts in the proposal phase`() = runTest {
+  fun shouldStartInProposalPhaseWhenFlowIsCreatedForTaskRequest() = runTest {
     val repo = InMemoryWorkflowRepository()
-    val taskRequest = CPGTaskRequest(
-      Task(
-        id = "task-1",
-        status = Enumeration(value = Task.TaskStatus.Requested),
-        intent = Enumeration(value = Task.TaskIntent.Proposal),
-      ),
-    ).apply { setIntent(Intent.PROPOSAL) }
+    val taskRequest =
+      CPGTaskRequest(
+          Task(
+            id = "task-1",
+            status = Enumeration(value = Task.TaskStatus.Requested),
+            intent = Enumeration(value = Task.TaskIntent.Proposal),
+          )
+        )
+        .apply { setIntent(Intent.PROPOSAL) }
     repo.create(taskRequest.resource)
 
     val flow = ActivityFlow.of(repo, taskRequest)
@@ -52,13 +74,15 @@ class ActivityFlowTest {
   @Test
   fun shouldReachPerformAndCompleteWhenTaskFlow() = runTest {
     val repo = InMemoryWorkflowRepository()
-    val taskRequest = CPGTaskRequest(
-      Task(
-        id = "task-1",
-        status = Enumeration(value = Task.TaskStatus.Requested),
-        intent = Enumeration(value = Task.TaskIntent.Order),
-      ),
-    ).apply { setIntent(Intent.ORDER) }
+    val taskRequest =
+      CPGTaskRequest(
+          Task(
+            id = "task-1",
+            status = Enumeration(value = Task.TaskStatus.Requested),
+            intent = Enumeration(value = Task.TaskIntent.Order),
+          )
+        )
+        .apply { setIntent(Intent.ORDER) }
     repo.create(taskRequest.resource)
 
     val flow = ActivityFlow.of(repo, taskRequest)
@@ -72,18 +96,26 @@ class ActivityFlowTest {
   @Test
   fun shouldReturnPriorPhasesWhenPlanBasedOnProposal() = runTest {
     val repo = InMemoryWorkflowRepository()
-    val proposal = CPGCommunicationRequest(
-      CommunicationRequest(id = "cr-prop", status = Enumeration(value = CommunicationRequest.RequestStatus.Active)),
-    ).apply { setIntent(Intent.PROPOSAL) }
+    val proposal =
+      CPGCommunicationRequest(
+          CommunicationRequest(
+            id = "cr-prop",
+            status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+          )
+        )
+        .apply { setIntent(Intent.PROPOSAL) }
     repo.create(proposal.resource)
 
-    val plan = CPGCommunicationRequest(
-      CommunicationRequest(
-        id = "cr-plan",
-        status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
-        basedOn = listOf(Reference(reference = FhirString(value = "CommunicationRequest/cr-prop"))),
-      ),
-    ).apply { setIntent(Intent.PLAN) }
+    val plan =
+      CPGCommunicationRequest(
+          CommunicationRequest(
+            id = "cr-plan",
+            status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+            basedOn =
+              listOf(Reference(reference = FhirString(value = "CommunicationRequest/cr-prop"))),
+          )
+        )
+        .apply { setIntent(Intent.PLAN) }
     repo.create(plan.resource)
 
     val previous = ActivityFlow.of(repo, plan).getPreviousPhases()
@@ -100,22 +132,26 @@ class ActivityFlowTest {
       listOf((it as CommunicationRequest).subject?.reference?.value ?: "")
     }
 
-    val active = CPGCommunicationRequest(
-      CommunicationRequest(
-        id = "cr-active",
-        status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
-        subject = Reference(reference = FhirString(value = "Patient/p1")),
-      ),
-    ).apply { setIntent(Intent.PROPOSAL) }
+    val active =
+      CPGCommunicationRequest(
+          CommunicationRequest(
+            id = "cr-active",
+            status = Enumeration(value = CommunicationRequest.RequestStatus.Active),
+            subject = Reference(reference = FhirString(value = "Patient/p1")),
+          )
+        )
+        .apply { setIntent(Intent.PROPOSAL) }
     repo.create(active.resource)
 
-    val completed = CPGCommunicationRequest(
-      CommunicationRequest(
-        id = "cr-done",
-        status = Enumeration(value = CommunicationRequest.RequestStatus.Completed),
-        subject = Reference(reference = FhirString(value = "Patient/p1")),
-      ),
-    ).apply { setIntent(Intent.PROPOSAL) }
+    val completed =
+      CPGCommunicationRequest(
+          CommunicationRequest(
+            id = "cr-done",
+            status = Enumeration(value = CommunicationRequest.RequestStatus.Completed),
+            subject = Reference(reference = FhirString(value = "Patient/p1")),
+          )
+        )
+        .apply { setIntent(Intent.PROPOSAL) }
     repo.create(completed.resource)
 
     val flows = ActivityFlow.of(repo, "p1")

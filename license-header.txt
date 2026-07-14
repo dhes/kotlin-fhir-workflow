@@ -1,5 +1,5 @@
 /*
- * Copyright 2026 Open Health Stack Foundation
+ * Copyright $YEAR Open Health Stack Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.demo
-
-import androidx.compose.ui.window.ComposeUIViewController
-import dev.ohs.fhir.workflow.demo.ui.App
-
-@Suppress("FunctionName", "unused") fun MainViewController() = ComposeUIViewController { App() }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.demo.flow
 
 import dev.ohs.fhir.workflow.activity.ActivityFlow
@@ -16,7 +31,7 @@ import dev.ohs.fhir.workflow.activity.resource.request.Status
  * since every phase's `prepare` requires the incoming request to already be active.
  */
 class ActivityHandler(
-  private val activityFlow: ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>,
+  private val activityFlow: ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>
 ) {
   suspend fun prepareAndInitiatePlan(): Result<Unit> = runCatching {
     activateCurrentRequest()
@@ -33,13 +48,17 @@ class ActivityHandler(
   suspend fun prepareAndInitiatePerform(): Result<Unit> = runCatching {
     activateCurrentRequest()
     val preparedEvent =
-      activityFlow.preparePerform<CPGMedicationDispenseEvent>("CPGMedicationDispenseEvent").getOrThrow()
+      activityFlow
+        .preparePerform<CPGMedicationDispenseEvent>("CPGMedicationDispenseEvent")
+        .getOrThrow()
     activityFlow.initiatePerform(preparedEvent).getOrThrow()
   }
 
   @Suppress("UNCHECKED_CAST")
   private suspend fun activateCurrentRequest() {
     val currentPhase = activityFlow.getCurrentPhase() as Phase.RequestPhase<CPGRequestResource<*>>
-    currentPhase.update(currentPhase.getRequestResource().apply { setStatus(Status.ACTIVE) }).getOrThrow()
+    currentPhase
+      .update(currentPhase.getRequestResource().apply { setStatus(Status.ACTIVE) })
+      .getOrThrow()
   }
 }

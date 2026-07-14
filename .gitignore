@@ -1,6 +1,3 @@
-# Local-only working docs (specs, plans) — not tracked
-docs/superpowers/
-
 # Gradle / build
 .gradle/
 build/
@@ -14,9 +11,17 @@ captures/
 *.ipr
 *.iws
 .kotlin/
+.vscode
 
 # Local config & secrets
 local.properties
 
 # OS
 .DS_Store
+
+# AI agents
+.claude
+CLAUDE.md
+AGENT.md
+docs/superpowers/
+.superpowers/

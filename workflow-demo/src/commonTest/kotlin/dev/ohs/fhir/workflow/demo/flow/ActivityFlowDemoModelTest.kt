@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.demo.flow
 
 import dev.ohs.fhir.model.r4.CodeableConcept
@@ -7,11 +22,11 @@ import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.workflow.demo.data.InMemoryDemoRepository
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class ActivityFlowDemoModelTest {
 
@@ -74,7 +89,8 @@ class ActivityFlowDemoModelTest {
     assertTrue(phaseCards.getValue(FlowPhase.ORDER).details.contains("Intent : order"))
     assertTrue(phaseCards.getValue(FlowPhase.PLAN).details.contains("Status : COMPLETED"))
 
-    // The dispense is initiated, not carried through to completion — as android-fhir's demo leaves it.
+    // The dispense is initiated, not carried through to completion — as android-fhir's demo leaves
+    // it.
     model.start(FlowPhase.PERFORM)
     phaseCards = cards(model)
     assertTrue(phaseCards.getValue(FlowPhase.PERFORM).details.contains("Status : PREPARATION"))
@@ -153,16 +169,23 @@ class ActivityFlowDemoModelTest {
   }
 
   private fun idOf(model: ActivityFlowDemoModel, phase: FlowPhase) =
-    model.cards.value.first { it.phase == phase }.details
+    model.cards.value
+      .first { it.phase == phase }
+      .details
       .substringAfter("MedicationRequest/")
       .substringBefore("\n")
 
   /** An apple order the patient is already on, as the plan's applicability condition looks for. */
-  private fun activeAppleOrder() = MedicationRequest(
-    id = "existing-apple-order",
-    status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
-    intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Order),
-    medication = MedicationRequest.Medication.CodeableConcept(CodeableConcept(text = FhirString(value = "Apple"))),
-    subject = Reference(reference = FhirString(value = "Patient/${MEDICATION_DISPENSE.patientId}")),
-  )
+  private fun activeAppleOrder() =
+    MedicationRequest(
+      id = "existing-apple-order",
+      status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
+      intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Order),
+      medication =
+        MedicationRequest.Medication.CodeableConcept(
+          CodeableConcept(text = FhirString(value = "Apple"))
+        ),
+      subject =
+        Reference(reference = FhirString(value = "Patient/${MEDICATION_DISPENSE.patientId}")),
+    )
 }

@@ -15,7 +15,11 @@
  */
 package dev.ohs.fhir.workflow.demo
 
-import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.window.ComposeViewport
 import dev.ohs.fhir.workflow.demo.ui.App
 
-@Suppress("FunctionName", "unused") fun MainViewController() = ComposeUIViewController { App() }
+@OptIn(ExperimentalComposeUiApi::class)
+fun main() {
+  ComposeViewport { App() }
+}

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.processor
 
 import dev.ohs.fhir.fhirpath.types.FhirPathDate
@@ -38,21 +53,27 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private val elementJson = Json { encodeDefaults = false; explicitNulls = false }
+private val elementJson = Json {
+  encodeDefaults = false
+  explicitNulls = false
+}
 
 /**
  * Converts an evaluated FHIRPath result into a [JsonElement] for dynamicValue write-back.
  *
- * The `when` dispatches per FHIR datatype rather than resolving a serializer generically because KMP
- * has no reflection to do `value::class.serializer()` on wasm/native. The datatype set is finite, so
- * this is bounded, mechanical boilerplate, kept self-contained so the library depends only on
- * `fhir-model` + `fhir-path`. An unsupported result type throws rather than being silently coerced.
+ * The `when` dispatches per FHIR datatype rather than resolving a serializer generically because
+ * KMP has no reflection to do `value::class.serializer()` on wasm/native. The datatype set is
+ * finite, so this is bounded, mechanical boilerplate, kept self-contained so the library depends
+ * only on `fhir-model` + `fhir-path`. An unsupported result type throws rather than being silently
+ * coerced.
  */
 internal fun evaluatedValueToJson(value: Any): JsonElement =
   primitiveOrNull(value)
     ?: quantityOrNull(value)
     ?: structuredOrNull(value)
-    ?: throw IllegalStateException("Unsupported dynamicValue result type ${value::class.simpleName}")
+    ?: throw IllegalStateException(
+      "Unsupported dynamicValue result type ${value::class.simpleName}"
+    )
 
 private fun primitiveOrNull(value: Any): JsonElement? =
   when (value) {
@@ -94,6 +115,7 @@ private fun quantityOrNull(value: Any): JsonElement? =
           put("unit", JsonPrimitive(it))
         }
       }
+
     else -> null
   }
 

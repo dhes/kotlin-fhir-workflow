@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.activity.resource.request
 
 import dev.ohs.fhir.model.r4.CommunicationRequest
@@ -12,23 +27,33 @@ import dev.ohs.fhir.workflow.resourceTypeName
 
 /**
  * A wrapper around a request-type resource (CommunicationRequest, MedicationRequest, Task) that
- * exposes the request pattern (status/intent/basedOn) uniformly. The wrapped resource is
- * immutable, so every setter reassigns [resource] via `.copy(...)`.
+ * exposes the request pattern (status/intent/basedOn) uniformly. The wrapped resource is immutable,
+ * so every setter reassigns [resource] via `.copy(...)`.
  */
 sealed class CPGRequestResource<R : Resource>(internal val mapper: StatusCodeMapper) {
   abstract var resource: R
     protected set
 
-  val resourceType: String get() = resource.resourceTypeName()
-  val logicalId: String? get() = resource.logicalId
+  val resourceType: String
+    get() = resource.resourceTypeName()
+
+  val logicalId: String?
+    get() = resource.logicalId
 
   internal abstract fun setIntent(intent: Intent)
+
   abstract fun getIntent(): Intent
+
   abstract fun setStatus(status: Status, reason: String? = null)
+
   fun getStatus(): Status = mapper.mapCodeToStatus(getStatusCode())
+
   abstract fun getStatusCode(): String?
+
   abstract fun setBasedOn(reference: Reference)
+
   abstract fun getBasedOn(): Reference?
+
   internal abstract fun copy(): CPGRequestResource<R>
 
   fun copy(id: String, status: Status, intent: Intent): CPGRequestResource<R> {
@@ -54,7 +79,8 @@ sealed class CPGRequestResource<R : Resource>(internal val mapper: StatusCodeMap
         is Task -> CPGTaskRequest(resource)
         is ServiceRequest -> CPGServiceRequest(resource)
         else -> throw IllegalArgumentException("Unknown CPG Request type ${resource::class}.")
-      } as CPGRequestResource<R>
+      }
+        as CPGRequestResource<R>
     }
   }
 }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.activity
 
 import dev.ohs.fhir.model.r4.Reference
@@ -22,7 +37,8 @@ import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.ref
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
-class ActivityFlow<R : CPGRequestResource<*>, E : CPGEventResource<*>> private constructor(
+class ActivityFlow<R : CPGRequestResource<*>, E : CPGEventResource<*>>
+private constructor(
   private val repository: WorkflowRepository,
   requestResource: R? = null,
   eventResource: E? = null,
@@ -30,74 +46,103 @@ class ActivityFlow<R : CPGRequestResource<*>, E : CPGEventResource<*>> private c
   private var currentPhase: Phase =
     when {
       eventResource != null -> PerformPhase(repository, eventResource)
-      requestResource != null -> when (requestResource.getIntent()) {
-        Intent.PROPOSAL -> ProposalPhase(repository, requestResource)
-        Intent.PLAN -> PlanPhase(repository, requestResource)
-        Intent.ORDER -> OrderPhase(repository, requestResource)
-        else -> throw IllegalArgumentException(
-          "Couldn't create the flow for ${requestResource.getIntent()} intent. Supported: proposal, plan, order.",
-        )
-      }
-      else -> throw IllegalArgumentException("Either Request or Event is required to create a flow.")
+
+      requestResource != null ->
+        when (requestResource.getIntent()) {
+          Intent.PROPOSAL -> ProposalPhase(repository, requestResource)
+
+          Intent.PLAN -> PlanPhase(repository, requestResource)
+
+          Intent.ORDER -> OrderPhase(repository, requestResource)
+
+          else ->
+            throw IllegalArgumentException(
+              "Couldn't create the flow for ${requestResource.getIntent()} intent. Supported: proposal, plan, order."
+            )
+        }
+
+      else ->
+        throw IllegalArgumentException("Either Request or Event is required to create a flow.")
     }
 
   fun getCurrentPhase(): Phase = currentPhase
 
-  /** Returns a read-only list of all the previous phases of the flow, walking the `basedOn` chain. */
+  /**
+   * Returns a read-only list of all the previous phases of the flow, walking the `basedOn` chain.
+   */
   @Suppress("UNCHECKED_CAST")
   suspend fun getPreviousPhases(): List<ReadOnlyRequestPhase<R>> {
     val phases = mutableListOf<ReadOnlyRequestPhase<R>>()
     var current: Phase? = currentPhase
     while (current != null) {
       val c = current
-      val basedOn: Reference? = when (c) {
-        is Phase.RequestPhase<*> -> c.getRequestResource().getBasedOn()
-        is Phase.EventPhase<*> -> c.getEventResource().getBasedOn()
-        else -> null
-      }
+      val basedOn: Reference? =
+        when (c) {
+          is Phase.RequestPhase<*> -> c.getRequestResource().getBasedOn()
+          is Phase.EventPhase<*> -> c.getEventResource().getBasedOn()
+          else -> null
+        }
       val basedOnRequest: R? =
         basedOn?.ref?.let { ref ->
           repository.read(ref.substringBefore("/"), ref.substringAfter("/"))?.let {
             CPGRequestResource.of(it) as R
           }
         }
-      current = when (basedOnRequest?.getIntent()) {
-        Intent.PROPOSAL -> ProposalPhase(repository, basedOnRequest)
-        Intent.PLAN -> PlanPhase(repository, basedOnRequest)
-        Intent.ORDER -> OrderPhase(repository, basedOnRequest)
-        else -> null
-      }
+      current =
+        when (basedOnRequest?.getIntent()) {
+          Intent.PROPOSAL -> ProposalPhase(repository, basedOnRequest)
+          Intent.PLAN -> PlanPhase(repository, basedOnRequest)
+          Intent.ORDER -> OrderPhase(repository, basedOnRequest)
+          else -> null
+        }
       current?.let { phases.add(it as ReadOnlyRequestPhase<R>) }
     }
     return phases
   }
 
   suspend fun preparePlan(): Result<R> = PlanPhase.prepare(currentPhase)
+
   suspend fun initiatePlan(preparedPlan: R): Result<PlanPhase<R>> =
     PlanPhase.initiate(repository, currentPhase, preparedPlan).onSuccess { currentPhase = it }
+
   suspend fun prepareOrder(): Result<R> = OrderPhase.prepare(currentPhase)
+
   suspend fun initiateOrder(preparedOrder: R): Result<OrderPhase<R>> =
     OrderPhase.initiate(repository, currentPhase, preparedOrder).onSuccess { currentPhase = it }
+
   suspend fun <D : E> preparePerform(eventClassName: String): Result<D> =
     PerformPhase.prepare(eventClassName, currentPhase)
+
   suspend fun <D : E> initiatePerform(preparedEvent: D): Result<PerformPhase<D>> =
     PerformPhase.initiate(repository, currentPhase, preparedEvent).onSuccess { currentPhase = it }
 
   companion object {
-    fun of(repository: WorkflowRepository, resource: CPGCommunicationRequest):
-      ActivityFlow<CPGCommunicationRequest, CPGCommunicationEvent> = ActivityFlow(repository, resource)
+    fun of(
+      repository: WorkflowRepository,
+      resource: CPGCommunicationRequest,
+    ): ActivityFlow<CPGCommunicationRequest, CPGCommunicationEvent> =
+      ActivityFlow(repository, resource)
 
-    fun of(repository: WorkflowRepository, resource: CPGCommunicationEvent):
-      ActivityFlow<CPGCommunicationRequest, CPGCommunicationEvent> = ActivityFlow(repository, null, resource)
+    fun of(
+      repository: WorkflowRepository,
+      resource: CPGCommunicationEvent,
+    ): ActivityFlow<CPGCommunicationRequest, CPGCommunicationEvent> =
+      ActivityFlow(repository, null, resource)
 
-    fun of(repository: WorkflowRepository, resource: CPGMedicationRequest):
-      ActivityFlow<CPGMedicationRequest, CPGEventResource<*>> = ActivityFlow(repository, resource)
+    fun of(
+      repository: WorkflowRepository,
+      resource: CPGMedicationRequest,
+    ): ActivityFlow<CPGMedicationRequest, CPGEventResource<*>> = ActivityFlow(repository, resource)
 
-    fun of(repository: WorkflowRepository, resource: CPGTaskRequest):
-      ActivityFlow<CPGTaskRequest, CPGTaskEvent> = ActivityFlow(repository, resource)
+    fun of(
+      repository: WorkflowRepository,
+      resource: CPGTaskRequest,
+    ): ActivityFlow<CPGTaskRequest, CPGTaskEvent> = ActivityFlow(repository, resource)
 
-    fun of(repository: WorkflowRepository, resource: CPGServiceRequest):
-      ActivityFlow<CPGServiceRequest, CPGServiceReportEvent> = ActivityFlow(repository, resource)
+    fun of(
+      repository: WorkflowRepository,
+      resource: CPGServiceRequest,
+    ): ActivityFlow<CPGServiceRequest, CPGServiceReportEvent> = ActivityFlow(repository, resource)
 
     /**
      * Returns the active (non-completed) flows for the [patientId], reconstructed from persistence.

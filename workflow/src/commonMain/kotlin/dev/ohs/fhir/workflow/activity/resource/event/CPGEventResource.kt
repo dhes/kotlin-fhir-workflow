@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.activity.resource.event
 
 import dev.ohs.fhir.model.r4.Communication
@@ -23,14 +38,22 @@ sealed class CPGEventResource<R : Resource>(internal val mapper: EventStatusCode
   abstract var resource: R
     protected set
 
-  val resourceType: String get() = resource.resourceTypeName()
-  val logicalId: String? get() = resource.logicalId
+  val resourceType: String
+    get() = resource.resourceTypeName()
+
+  val logicalId: String?
+    get() = resource.logicalId
 
   abstract fun setStatus(status: EventStatus, reason: String? = null)
+
   fun getStatus(): EventStatus = mapper.mapCodeToStatus(getStatusCode())
+
   abstract fun getStatusCode(): String?
+
   abstract fun setBasedOn(reference: Reference)
+
   abstract fun getBasedOn(): Reference?
+
   abstract fun copy(): CPGEventResource<R>
 
   companion object {
@@ -42,12 +65,13 @@ sealed class CPGEventResource<R : Resource>(internal val mapper: EventStatusCode
         is CPGServiceRequest -> CPGServiceReportEvent.from(from)
       }
 
-    fun of(event: Resource): CPGEventResource<*> = when (event) {
-      is Communication -> CPGCommunicationEvent(event)
-      is MedicationDispense -> CPGMedicationDispenseEvent(event)
-      is Task -> CPGTaskEvent(event)
-      is DiagnosticReport -> CPGServiceReportEvent(event)
-      else -> throw IllegalArgumentException("Unknown CPG event type ${event::class}.")
-    }
+    fun of(event: Resource): CPGEventResource<*> =
+      when (event) {
+        is Communication -> CPGCommunicationEvent(event)
+        is MedicationDispense -> CPGMedicationDispenseEvent(event)
+        is Task -> CPGTaskEvent(event)
+        is DiagnosticReport -> CPGServiceReportEvent(event)
+        else -> throw IllegalArgumentException("Unknown CPG event type ${event::class}.")
+      }
   }
 }

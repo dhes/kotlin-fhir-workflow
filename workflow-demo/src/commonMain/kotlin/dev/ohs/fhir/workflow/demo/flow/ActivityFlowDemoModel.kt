@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.demo.flow
 
 import dev.ohs.fhir.model.r4.Dosage
@@ -54,16 +69,18 @@ class ActivityFlowDemoModel(
   private val _cards = MutableStateFlow(phaseCards())
   val cards: StateFlow<List<PhaseCard>> = _cards.asStateFlow()
 
-  /** Whether the knowledge artifacts are installed, i.e. whether Initialize still has work to do. */
+  /**
+   * Whether the knowledge artifacts are installed, i.e. whether Initialize still has work to do.
+   */
   val initialized: StateFlow<Boolean>
     get() = _initialized.asStateFlow()
 
   private val _initialized = MutableStateFlow(false)
 
   /**
-   * Picks up where a previous run left off: the repository may already hold the knowledge artifacts,
-   * and a flow left half-finished is reconstructed from the requests it persisted, so the demo
-   * resumes at the phase it was on rather than starting over.
+   * Picks up where a previous run left off: the repository may already hold the knowledge
+   * artifacts, and a flow left half-finished is reconstructed from the requests it persisted, so
+   * the demo resumes at the phase it was on rather than starting over.
    */
   suspend fun refresh() = withProgress {
     val installed = proposalHandler.checkInstalledDependencies(configuration)
@@ -76,14 +93,14 @@ class ActivityFlowDemoModel(
   }
 
   /**
-   * Rebuilds the flow from the patient's persisted requests and returns the phase it left off at, or
-   * null when there is nothing to resume.
+   * Rebuilds the flow from the patient's persisted requests and returns the phase it left off at,
+   * or null when there is nothing to resume.
    */
   @Suppress("UNCHECKED_CAST")
   private suspend fun resumeFlow(): FlowPhase? {
-    val resumed = ActivityFlow.of(repository, configuration.patientId)
-      .firstOrNull() as? ActivityFlow<CPGMedicationRequest, CPGEventResource<*>>
-      ?: return null
+    val resumed =
+      ActivityFlow.of(repository, configuration.patientId).firstOrNull()
+        as? ActivityFlow<CPGMedicationRequest, CPGEventResource<*>> ?: return null
 
     activityFlow = resumed
     handler = ActivityHandler(resumed)
@@ -128,10 +145,15 @@ class ActivityFlowDemoModel(
         _initialized.value = true
         _phase.value = FlowPhase.PROPOSAL
       }
+
       FlowPhase.PROPOSAL -> createProposal()
+
       FlowPhase.PLAN -> advance(FlowPhase.ORDER) { requireHandler().prepareAndInitiatePlan() }
+
       FlowPhase.ORDER -> advance(FlowPhase.PERFORM) { requireHandler().prepareAndInitiateOrder() }
+
       FlowPhase.PERFORM -> advance(FlowPhase.NONE) { requireHandler().prepareAndInitiatePerform() }
+
       FlowPhase.NONE -> Unit
     }
   }
@@ -145,7 +167,9 @@ class ActivityFlowDemoModel(
     listOfNotNull(proposal, plan, order).forEach { request ->
       request.logicalId?.let { repository.delete(request.resourceType, it) }
     }
-    event?.let { dispense -> dispense.logicalId?.let { repository.delete(dispense.resourceType, it) } }
+    event?.let { dispense ->
+      dispense.logicalId?.let { repository.delete(dispense.resourceType, it) }
+    }
 
     activityFlow = null
     handler = null
@@ -157,8 +181,11 @@ class ActivityFlowDemoModel(
   }
 
   private suspend fun createProposal() {
-    val generated = proposalHandler.generateProposal(configuration)
-      ?: error("\$apply generated no proposal: the plan's applicability condition rejected the patient.")
+    val generated =
+      proposalHandler.generateProposal(configuration)
+        ?: error(
+          "\$apply generated no proposal: the plan's applicability condition rejected the patient."
+        )
 
     activityFlow = ActivityFlow.of(repository, generated)
     handler = ActivityHandler(requireNotNull(activityFlow))
@@ -212,11 +239,13 @@ class ActivityFlowDemoModel(
 
   @Suppress("UNCHECKED_CAST")
   private fun currentRequestResource(): CPGMedicationRequest? =
-    (activityFlow?.getCurrentPhase() as? Phase.RequestPhase<*>)?.getRequestResource() as? CPGMedicationRequest
+    (activityFlow?.getCurrentPhase() as? Phase.RequestPhase<*>)?.getRequestResource()
+      as? CPGMedicationRequest
 
   @Suppress("UNCHECKED_CAST")
   private fun currentEventResource(): CPGMedicationDispenseEvent? =
-    (activityFlow?.getCurrentPhase() as? Phase.EventPhase<*>)?.getEventResource() as? CPGMedicationDispenseEvent
+    (activityFlow?.getCurrentPhase() as? Phase.EventPhase<*>)?.getEventResource()
+      as? CPGMedicationDispenseEvent
 
   private suspend fun refresh(request: CPGMedicationRequest): CPGMedicationRequest {
     val id = request.logicalId ?: return request
@@ -227,26 +256,29 @@ class ActivityFlowDemoModel(
   private fun requestDetails(request: CPGMedicationRequest?): String {
     if (request == null) return "—"
     return listOf(
-      "ID     : ${request.resourceType}/${request.logicalId}",
-      "Intent : ${request.getIntent().code}",
-      "Status : ${request.getStatus()}",
-      "BasedOn: ${request.getBasedOn()?.reference?.value ?: "—"}",
-      "",
-      "Additional Info: ${dosage(request.resource.dosageInstruction)}",
-    ).joinToString("\n")
+        "ID     : ${request.resourceType}/${request.logicalId}",
+        "Intent : ${request.getIntent().code}",
+        "Status : ${request.getStatus()}",
+        "BasedOn: ${request.getBasedOn()?.reference?.value ?: "—"}",
+        "",
+        "Additional Info: ${dosage(request.resource.dosageInstruction)}",
+      )
+      .joinToString("\n")
   }
 
   private fun eventDetails(event: CPGMedicationDispenseEvent?): String {
     if (event == null) return "—"
     return listOf(
-      "ID     : ${event.resourceType}/${event.logicalId}",
-      "Status : ${event.getStatus()}",
-      "BasedOn: ${event.getBasedOn()?.reference?.value ?: "—"}",
-    ).joinToString("\n")
+        "ID     : ${event.resourceType}/${event.logicalId}",
+        "Status : ${event.getStatus()}",
+        "BasedOn: ${event.getBasedOn()?.reference?.value ?: "—"}",
+      )
+      .joinToString("\n")
   }
 
   private fun dosage(dosageInstruction: List<Dosage>): String =
-    dosageInstruction.firstOrNull()?.let { detailsJson.encodeToString(Dosage.serializer(), it) } ?: "—"
+    dosageInstruction.firstOrNull()?.let { detailsJson.encodeToString(Dosage.serializer(), it) }
+      ?: "—"
 }
 
 private val detailsJson = Json {

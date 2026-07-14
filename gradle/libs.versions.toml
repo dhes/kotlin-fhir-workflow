@@ -10,6 +10,8 @@ kotlinx-serialization = "1.8.0"
 kotest = "6.2.0"
 composeMultiplatform = "1.11.0"
 kermit = "2.0.8"
+spotless = "8.4.0"
+kt-lint = "1.8.0"
 
 [libraries]
 ohs-fhir-model = { module = "dev.ohs.fhir:fhir-model", version.ref = "ohs-fhir-model" }
@@ -32,3 +34,4 @@ android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.
 android-application = { id = "com.android.application", version.ref = "android-gradle-plugin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

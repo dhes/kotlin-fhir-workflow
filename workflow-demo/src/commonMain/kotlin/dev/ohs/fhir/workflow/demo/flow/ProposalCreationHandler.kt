@@ -1,7 +1,21 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package dev.ohs.fhir.workflow.demo.flow
 
 import dev.ohs.fhir.model.r4.Bundle
-import dev.ohs.fhir.model.r4.CarePlan
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.Patient
@@ -9,12 +23,12 @@ import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
 import dev.ohs.fhir.workflow.operation.FhirOperator
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import kotlinx.serialization.json.Json
-import kotlin.time.Clock
-import kotlin.uuid.Uuid
 
 /**
  * Installs a [DemoConfiguration]'s knowledge artifacts and generates its proposal by running
@@ -30,7 +44,9 @@ class ProposalCreationHandler(
 ) {
   private val operator = FhirOperator(repository)
 
-  /** True once [installDependencies] has put the configuration's PlanDefinition in the repository. */
+  /**
+   * True once [installDependencies] has put the configuration's PlanDefinition in the repository.
+   */
   suspend fun checkInstalledDependencies(configuration: DemoConfiguration): Boolean =
     repository
       .searchByUri("PlanDefinition", "url", configuration.planDefinitionCanonical)
@@ -39,10 +55,10 @@ class ProposalCreationHandler(
   suspend fun installDependencies(configuration: DemoConfiguration) {
     if (checkInstalledDependencies(configuration)) return
     listOf(
-      configuration.patientPath,
-      configuration.planDefinitionPath,
-      configuration.activityDefinitionPath,
-    )
+        configuration.patientPath,
+        configuration.planDefinitionPath,
+        configuration.activityDefinitionPath,
+      )
       .forEach { repository.create(parse(assets(it))) }
   }
 
@@ -52,18 +68,20 @@ class ProposalCreationHandler(
    * apple order is already active.
    */
   suspend fun generateProposal(configuration: DemoConfiguration): CPGMedicationRequest? {
-    val patient = repository.read("Patient", configuration.patientId) as? Patient
-      ?: error("Patient/${configuration.patientId} is not installed")
+    val patient =
+      repository.read("Patient", configuration.patientId) as? Patient
+        ?: error("Patient/${configuration.patientId} is not installed")
 
-    val carePlan = operator.generateCarePlan(
-      planDefinitionCanonical = configuration.planDefinitionCanonical,
-      subject = patient,
-      variables = mapOf("requests" to existingRequests(configuration.patientId)),
-      today = today,
-    )
+    val carePlan =
+      operator.generateCarePlan(
+        planDefinitionCanonical = configuration.planDefinitionCanonical,
+        subject = patient,
+        variables = mapOf("requests" to existingRequests(configuration.patientId)),
+        today = today,
+      )
 
-    val generated = carePlan.contained.filterIsInstance<MedicationRequest>().firstOrNull()
-      ?: return null
+    val generated =
+      carePlan.contained.filterIsInstance<MedicationRequest>().firstOrNull() ?: return null
 
     // $apply derives a stable id from the plan and action, so give each proposal a fresh one:
     // restarting the flow generates the same request again, and the repository would collide.
