@@ -24,11 +24,26 @@ import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlin.uuid.Uuid
 
+/**
+ * Provides implementation of the plan phase of the activity flow. See
+ * [general-activity-flow](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#general-activity-flow)
+ * for more info.
+ *
+ * @param repository implementation of [WorkflowRepository] to store / retrieve FHIR resources.
+ * @param r concrete implementation of sealed [CPGRequestResource] class. e.g.
+ *   `CPGCommunicationRequest`.
+ */
 @Suppress("UNCHECKED_CAST")
 class PlanPhase<R : CPGRequestResource<*>>(repository: WorkflowRepository, r: R) :
   BaseRequestPhase<R>(repository, r, Phase.PhaseName.PLAN) {
 
   companion object {
+
+    /**
+     * Creates a draft plan of type [R] based on the state of the provided [inputPhase]. See
+     * [beginPlan](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#plan) for
+     * more details.
+     */
     fun <R : CPGRequestResource<*>> prepare(inputPhase: Phase): Result<R> = runCatching {
       check(inputPhase.getPhaseName() == Phase.PhaseName.PROPOSAL) {
         "A Plan can't be created for a flow in ${inputPhase.getPhaseName().name} phase."
@@ -44,6 +59,11 @@ class PlanPhase<R : CPGRequestResource<*>>(repository: WorkflowRepository, r: R)
         as R
     }
 
+    /**
+     * Creates a [PlanPhase] of request type [R] based on the [inputPhase] and [draftPlan]. See
+     * [endPlan](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#plan) for more
+     * details.
+     */
     suspend fun <R : CPGRequestResource<*>> initiate(
       repository: WorkflowRepository,
       inputPhase: Phase,

@@ -15,6 +15,13 @@
  */
 package dev.ohs.fhir.workflow.activity.resource.request
 
+/**
+ * For the activity flow, we are interested in a few status and they are represented as individual
+ * values here. Everything else is represented by [OTHER].
+ *
+ * See [codesystem-resource-status](https://build.fhir.org/codesystem-resource-status.html) for the
+ * list of the status.
+ */
 sealed interface Status {
   data object DRAFT : Status
 

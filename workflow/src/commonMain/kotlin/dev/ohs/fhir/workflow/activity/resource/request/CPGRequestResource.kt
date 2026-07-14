@@ -26,9 +26,20 @@ import dev.ohs.fhir.workflow.reference
 import dev.ohs.fhir.workflow.resourceTypeName
 
 /**
- * A wrapper around a request-type resource (CommunicationRequest, MedicationRequest, Task) that
- * exposes the request pattern (status/intent/basedOn) uniformly. The wrapped resource is immutable,
- * so every setter reassigns [resource] via `.copy(...)`.
+ * This abstracts the
+ * [CPG Request Resources](https://build.fhir.org/ig/HL7/cqf-recommendations/profiles.html#activity-profiles)
+ * used in various activities. The various subclasses of [CPGRequestResource] act as a wrapper
+ * around the resource they are derived from and help with the abstracted properties defined for
+ * each [CPGRequestResource]. e.g. [CPGCommunicationRequest] is a wrapper around the
+ * [CommunicationRequest] and helps with its [Intent], [Status] and basedOn [Reference]s.
+ *
+ * The wrapped [resource] is immutable, so every setter reassigns [resource] via `.copy(...)`.
+ *
+ * The application users may use the [Companion.of] factory to create the required
+ * [CPGRequestResource]s. The factory dispatches on the type of the given [Resource]: a
+ * [CommunicationRequest] produces a [CPGCommunicationRequest], a [MedicationRequest] a
+ * [CPGMedicationRequest], a [Task] a [CPGTaskRequest] and a [ServiceRequest] a [CPGServiceRequest].
+ * Any other resource type is rejected with an [IllegalArgumentException].
  */
 sealed class CPGRequestResource<R : Resource>(internal val mapper: StatusCodeMapper) {
   abstract var resource: R
@@ -71,6 +82,12 @@ sealed class CPGRequestResource<R : Resource>(internal val mapper: StatusCodeMap
   fun asReference(): Reference = reference("${resource.resourceTypeName()}/${resource.logicalId}")
 
   companion object {
+    /**
+     * Creates the [CPGRequestResource] appropriate for the given request [resource]. The type of
+     * the resource describes the activity and is used to select the particular CPG request wrapper.
+     *
+     * @throws IllegalArgumentException if the resource is not a supported CPG request type.
+     */
     fun <R : Resource> of(resource: R): CPGRequestResource<R> {
       @Suppress("UNCHECKED_CAST")
       return when (resource) {

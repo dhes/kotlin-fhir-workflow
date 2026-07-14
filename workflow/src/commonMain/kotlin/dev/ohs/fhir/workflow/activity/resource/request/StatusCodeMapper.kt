@@ -23,12 +23,18 @@ import dev.ohs.fhir.workflow.activity.resource.request.Status.ONHOLD
 import dev.ohs.fhir.workflow.activity.resource.request.Status.OTHER
 import dev.ohs.fhir.workflow.activity.resource.request.Status.REVOKED
 
+/**
+ * Since request resources may have different code for same status, each [CPGRequestResource] should
+ * provide its own mapper. See
+ * [columns next to status](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#activity-lifecycle---request-phases-proposal-plan-order)
+ */
 interface StatusCodeMapper {
   fun mapCodeToStatus(code: String?): Status
 
   fun mapStatusToCode(status: Status): String?
 }
 
+/** A base implementation where the status and code map each other. */
 open class StatusCodeMapperImpl : StatusCodeMapper {
   override fun mapCodeToStatus(code: String?): Status =
     when (code) {

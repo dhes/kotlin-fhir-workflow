@@ -19,5 +19,14 @@ import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
+/**
+ * Provides implementation of the proposal phase of the activity flow. See
+ * [general-activity-flow](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#general-activity-flow)
+ * for more info.
+ *
+ * @param repository implementation of [WorkflowRepository] to store / retrieve FHIR resources.
+ * @param r concrete implementation of sealed [CPGRequestResource] class. e.g.
+ *   `CPGCommunicationRequest`.
+ */
 class ProposalPhase<R : CPGRequestResource<*>>(repository: WorkflowRepository, r: R) :
   BaseRequestPhase<R>(repository, r, Phase.PhaseName.PROPOSAL)

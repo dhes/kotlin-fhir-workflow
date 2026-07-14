@@ -20,7 +20,9 @@ import dev.ohs.fhir.workflow.activity.resource.event.CPGEventResource
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
 import dev.ohs.fhir.workflow.ref
 
+/** Defines the various phases of a CPG Request. */
 sealed interface Phase {
+  /** The names of the phases an activity flow may be in. */
   enum class PhaseName {
     PROPOSAL,
     PLAN,
@@ -28,8 +30,10 @@ sealed interface Phase {
     PERFORM,
   }
 
+  /** Returns the [PhaseName] of this phase. */
   fun getPhaseName(): PhaseName
 
+  /** Activity phases for a CPG Request. */
   interface RequestPhase<R : CPGRequestResource<*>> : Phase, ReadOnlyRequestPhase<R> {
     suspend fun update(r: R): Result<Unit>
 
@@ -42,6 +46,7 @@ sealed interface Phase {
     suspend fun reject(reason: String?): Result<Unit>
   }
 
+  /** Activity phases for a CPG Event. */
   interface EventPhase<E : CPGEventResource<*>> : Phase {
     fun getEventResource(): E
 
@@ -63,10 +68,14 @@ sealed interface Phase {
   }
 }
 
+/** Provides a read-only view of a request phase. */
 interface ReadOnlyRequestPhase<R : CPGRequestResource<*>> {
+  /** Returns the [Phase.PhaseName] of this phase. */
   fun getPhaseName(): Phase.PhaseName
 
+  /** Returns the request resource this phase wraps. */
   fun getRequestResource(): R
 }
 
+/** Checks if two references are equal by comparing their reference values. */
 internal fun checkReferencesEqual(a: Reference, b: Reference): Boolean = a.ref == b.ref

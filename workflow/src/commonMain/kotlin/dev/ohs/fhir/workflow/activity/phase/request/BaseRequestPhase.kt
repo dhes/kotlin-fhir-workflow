@@ -20,10 +20,16 @@ import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
 import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
+/** Encapsulates the state transitions of a [Phase.RequestPhase]. */
 @Suppress("UNCHECKED_CAST")
 abstract class BaseRequestPhase<R : CPGRequestResource<*>>(
+  /** Implementation of [WorkflowRepository] to store / retrieve FHIR resources. */
   private val repository: WorkflowRepository,
+  /**
+   * Concrete implementation of sealed [CPGRequestResource] class. e.g. `CPGCommunicationRequest`.
+   */
   r: R,
+  /** PhaseName of the concrete implementation. */
   private val phaseName: Phase.PhaseName,
 ) : Phase.RequestPhase<R> {
 

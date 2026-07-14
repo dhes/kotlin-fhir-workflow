@@ -25,12 +25,18 @@ import dev.ohs.fhir.workflow.activity.resource.event.EventStatus.PREPARATION
 import dev.ohs.fhir.workflow.activity.resource.event.EventStatus.STOPPED
 import dev.ohs.fhir.workflow.activity.resource.event.EventStatus.UNKNOWN
 
+/**
+ * Since event resources may have different codes for the same status, each [CPGEventResource]
+ * should provide its own mapper. See
+ * [columns next to status](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#activity-lifecycle---event-phase)
+ */
 interface EventStatusCodeMapper {
   fun mapCodeToStatus(code: String?): EventStatus
 
   fun mapStatusToCode(status: EventStatus): String?
 }
 
+/** A base implementation where the status and code map each other. */
 open class EventStatusCodeMapperImpl : EventStatusCodeMapper {
   override fun mapCodeToStatus(code: String?): EventStatus =
     when (code) {

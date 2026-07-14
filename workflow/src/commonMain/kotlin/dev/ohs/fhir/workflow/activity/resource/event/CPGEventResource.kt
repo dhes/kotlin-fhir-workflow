@@ -30,9 +30,18 @@ import dev.ohs.fhir.workflow.logicalId
 import dev.ohs.fhir.workflow.resourceTypeName
 
 /**
- * A wrapper around an event-type resource (Communication, MedicationDispense) that exposes the
- * event pattern (status/basedOn) uniformly. The wrapped resource is immutable, so every setter
- * reassigns [resource] via `.copy(...)`.
+ * This abstracts the
+ * [CPG Event Resources](https://build.fhir.org/ig/HL7/cqf-recommendations/profiles.html#activity-profiles)
+ * used in various activities. The various subclasses of [CPGEventResource] act as a wrapper around
+ * the resource they are derived from and help with the abstracted properties defined for each
+ * [CPGEventResource]. e.g. [CPGCommunicationEvent] is a wrapper around the [Communication] and
+ * helps with its [EventStatus] and basedOn [Reference]s.
+ *
+ * The wrapped [resource] is immutable, so every setter reassigns [resource] with a `.copy(...)` of
+ * the previous value instead of mutating it in place.
+ *
+ * The application users may use the appropriate [Companion.of] factory to create the required
+ * [CPGEventResource]s.
  */
 sealed class CPGEventResource<R : Resource>(internal val mapper: EventStatusCodeMapper) {
   abstract var resource: R

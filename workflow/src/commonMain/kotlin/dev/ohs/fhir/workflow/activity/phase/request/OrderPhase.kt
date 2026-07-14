@@ -24,6 +24,15 @@ import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlin.uuid.Uuid
 
+/**
+ * Provides implementation of the order phase of the activity flow. See
+ * [general-activity-flow](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#general-activity-flow)
+ * for more info.
+ *
+ * @param repository implementation of [WorkflowRepository] to store / retrieve FHIR resources.
+ * @param r concrete implementation of sealed [CPGRequestResource] class. e.g.
+ *   `CPGCommunicationRequest`.
+ */
 @Suppress("UNCHECKED_CAST")
 class OrderPhase<R : CPGRequestResource<*>>(repository: WorkflowRepository, r: R) :
   BaseRequestPhase<R>(repository, r, Phase.PhaseName.ORDER) {
@@ -32,6 +41,11 @@ class OrderPhase<R : CPGRequestResource<*>>(repository: WorkflowRepository, r: R
     private val AllowedIntents = listOf(Intent.PROPOSAL, Intent.PLAN)
     private val AllowedPhases = listOf(Phase.PhaseName.PROPOSAL, Phase.PhaseName.PLAN)
 
+    /**
+     * Creates a draft order of type [R] based on the state of the provided [inputPhase]. See
+     * [beginOrder](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#order) for
+     * more details.
+     */
     fun <R : CPGRequestResource<*>> prepare(inputPhase: Phase): Result<R> = runCatching {
       check(inputPhase.getPhaseName() in AllowedPhases) {
         "An Order can't be created for a flow in ${inputPhase.getPhaseName().name} phase."
@@ -47,6 +61,11 @@ class OrderPhase<R : CPGRequestResource<*>>(repository: WorkflowRepository, r: R
         as R
     }
 
+    /**
+     * Creates an [OrderPhase] of request type [R] based on the [inputPhase] and [inputOrder]. See
+     * [endOrder](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#order) for
+     * more details.
+     */
     suspend fun <R : CPGRequestResource<*>> initiate(
       repository: WorkflowRepository,
       inputPhase: Phase,

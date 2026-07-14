@@ -37,6 +37,103 @@ import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.ref
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
+/**
+ * Manages the workflow of clinical recommendations according to the FHIR Clinical Practice
+ * Guidelines (CPG) specification. This class implements an
+ * [activity flow](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#activity-lifecycle---request-phases-proposal-plan-order),
+ * allowing you to take proposals and guide them through the various phases (proposal, plan, order,
+ * perform) of a clinical recommendation. You can also resume existing workflows from any phase.
+ *
+ * **NOTE**
+ * * The `prepare` and `initiate` apis of [ActivityFlow] and the apis of [Phase] are `suspend`
+ *   functions that touch the [WorkflowRepository] and should be called from a coroutine.
+ * * [ActivityFlow] is not thread safe and concurrent changes to the flow/phase from multiple
+ *   coroutines may produce undesired results.
+ *
+ * **Creating an ActivityFlow:**
+ *
+ * Use the appropriate [ActivityFlow.of] factory function to create an instance. You can start a new
+ * flow with a [CPGRequestResource] or resume an existing flow from a [CPGRequestResource] or
+ * [CPGEventResource] based on the last state of the flow.
+ *
+ * ```kotlin
+ * val request = CPGMedicationRequest(medicationRequestGeneratedByCarePlan)
+ * val flow = ActivityFlow.of(repository, request)
+ * ```
+ *
+ * **Navigating Phases:**
+ *
+ * An [ActivityFlow] progresses through a series of phases, represented by the [Phase] interface.
+ * You can access the current phase using [getCurrentPhase].
+ *
+ * ```kotlin
+ * when (val phase = flow.getCurrentPhase()) {
+ *   is ProposalPhase -> // Handle proposal phase
+ *   is PlanPhase -> // Handle plan phase
+ *   is OrderPhase -> // Handle order phase
+ *   is PerformPhase -> // Handle perform phase
+ * }
+ * ```
+ *
+ * **Transitioning Between Phases:**
+ *
+ * [ActivityFlow] provides functions to prepare and initiate the next phase.
+ * * The `prepare` api creates a new request or event based on the current phase and returns it back
+ *   to you. It doesn't make any changes to the current phase request and doesn't persist anything
+ *   to the [repository].
+ * * The `initiate` api creates a new phase based on the current phase and the provided
+ *   request/event. It does change the current phase request and the provided request and persists
+ *   them to the [repository].
+ *
+ * For example, to move from the proposal phase to the plan phase:
+ * ```kotlin
+ * val preparePlanResult = flow.preparePlan()
+ * if (preparePlanResult.isFailure) {
+ *   // Handle failure
+ * }
+ *
+ * val preparedPlan = preparePlanResult.getOrThrow()
+ * // ... modify preparedPlan
+ * val planPhase = flow.initiatePlan(preparedPlan)
+ * ```
+ *
+ * **Note:** The `prepare` and `initiate` calls that succeed depend on the current phase.
+ *
+ * **Transitioning to Perform Phase:**
+ *
+ * Since perform creates a [CPGEventResource] and the same flow could create different event
+ * resources, you need to provide the name of the appropriate event class to [preparePerform].
+ *
+ * ```kotlin
+ * // Prepare and initiate the perform phase
+ * val preparedPerformEvent =
+ *   flow.preparePerform<CPGMedicationDispenseEvent>("CPGMedicationDispenseEvent").getOrThrow()
+ * // update preparedPerformEvent
+ * val performPhase = flow.initiatePerform(preparedPerformEvent).getOrThrow()
+ * ```
+ *
+ * **Updating states in a phase:**
+ *
+ * [ProposalPhase], [PlanPhase] and [OrderPhase] are all a type of [Phase.RequestPhase] and allow
+ * you to update the state of the request.
+ *
+ * ```kotlin
+ * val planPhase = flow.initiatePlan(preparedPlan).getOrThrow()
+ * val medicationRequest = planPhase.getRequestResource()
+ * // update medicationRequest
+ * planPhase.update(updatedMedicationRequest)
+ * ```
+ *
+ * [PerformPhase] is a type of [Phase.EventPhase] and allows you to update the state of the event.
+ *
+ * ```kotlin
+ * val performPhase = ...
+ * val medicationDispense = performPhase.getEventResource()
+ * // update medicationDispense
+ * performPhase.update(updatedMedicationDispense)
+ * performPhase.complete()
+ * ```
+ */
 class ActivityFlow<R : CPGRequestResource<*>, E : CPGEventResource<*>>
 private constructor(
   private val repository: WorkflowRepository,
@@ -65,6 +162,16 @@ private constructor(
         throw IllegalArgumentException("Either Request or Event is required to create a flow.")
     }
 
+  /**
+   * Returns the current phase of the flow. Callers may check the type of the phase by calling
+   * [Phase.getPhaseName] on the value returned by [getCurrentPhase] and then cast it to the
+   * appropriate class.
+   *
+   * The table below shows the mapping between [Phase.PhaseName] and the [Phase] implementations. |
+   * PhaseName | Class | |----------------------------|-----------------| |
+   * [Phase.PhaseName.PROPOSAL] | [ProposalPhase] | | [Phase.PhaseName.PLAN] | [PlanPhase] | |
+   * [Phase.PhaseName.ORDER] | [OrderPhase] | | [Phase.PhaseName.PERFORM] | [PerformPhase] |
+   */
   fun getCurrentPhase(): Phase = currentPhase
 
   /**
@@ -100,45 +207,99 @@ private constructor(
     return phases
   }
 
+  /**
+   * Prepares a plan resource based on the state of the [currentPhase] and returns it to the caller
+   * without persisting any changes into [repository].
+   *
+   * @return [Result] containing the plan if the action is successful, error otherwise.
+   */
   suspend fun preparePlan(): Result<R> = PlanPhase.prepare(currentPhase)
 
+  /**
+   * Initiates a plan phase based on the state of the [currentPhase] and [preparedPlan]. This api
+   * persists the [preparedPlan] into [repository].
+   *
+   * @return [PlanPhase] if the action is successful, error otherwise.
+   */
   suspend fun initiatePlan(preparedPlan: R): Result<PlanPhase<R>> =
     PlanPhase.initiate(repository, currentPhase, preparedPlan).onSuccess { currentPhase = it }
 
+  /**
+   * Prepares an order resource based on the state of the [currentPhase] and returns it to the
+   * caller without persisting any changes into [repository].
+   *
+   * @return [Result] containing the order if the action is successful, error otherwise.
+   */
   suspend fun prepareOrder(): Result<R> = OrderPhase.prepare(currentPhase)
 
+  /**
+   * Initiates an order phase based on the state of the [currentPhase] and [preparedOrder]. This api
+   * persists the [preparedOrder] into [repository].
+   *
+   * @return [OrderPhase] if the action is successful, error otherwise.
+   */
   suspend fun initiateOrder(preparedOrder: R): Result<OrderPhase<R>> =
     OrderPhase.initiate(repository, currentPhase, preparedOrder).onSuccess { currentPhase = it }
 
+  /**
+   * Prepares an event resource of the type named by [eventClassName] (e.g.
+   * `"CPGMedicationDispenseEvent"`) based on the state of the [currentPhase] and returns it to the
+   * caller without persisting any changes into [repository].
+   *
+   * @return [Result] containing the event if the action is successful, error otherwise.
+   */
   suspend fun <D : E> preparePerform(eventClassName: String): Result<D> =
     PerformPhase.prepare(eventClassName, currentPhase)
 
+  /**
+   * Initiates a perform phase based on the state of the [currentPhase] and [preparedEvent]. This
+   * api persists the [preparedEvent] into [repository].
+   *
+   * @return [PerformPhase] if the action is successful, error otherwise.
+   */
   suspend fun <D : E> initiatePerform(preparedEvent: D): Result<PerformPhase<D>> =
     PerformPhase.initiate(repository, currentPhase, preparedEvent).onSuccess { currentPhase = it }
 
   companion object {
+    /**
+     * Creates a flow for the
+     * [Send Message](https://build.fhir.org/ig/HL7/cqf-recommendations/examples-activities.html#send-a-message)
+     * activity, starting from the [CPGCommunicationRequest].
+     */
     fun of(
       repository: WorkflowRepository,
       resource: CPGCommunicationRequest,
     ): ActivityFlow<CPGCommunicationRequest, CPGCommunicationEvent> =
       ActivityFlow(repository, resource)
 
+    /**
+     * Resumes the flow for the
+     * [Send Message](https://build.fhir.org/ig/HL7/cqf-recommendations/examples-activities.html#send-a-message)
+     * activity from an existing [CPGCommunicationEvent].
+     */
     fun of(
       repository: WorkflowRepository,
       resource: CPGCommunicationEvent,
     ): ActivityFlow<CPGCommunicationRequest, CPGCommunicationEvent> =
       ActivityFlow(repository, null, resource)
 
+    /**
+     * Creates a flow for the
+     * [Order a medication](https://build.fhir.org/ig/HL7/cqf-recommendations/examples-activities.html#order-a-medication)
+     * activity, starting from the [CPGMedicationRequest].
+     */
     fun of(
       repository: WorkflowRepository,
       resource: CPGMedicationRequest,
     ): ActivityFlow<CPGMedicationRequest, CPGEventResource<*>> = ActivityFlow(repository, resource)
 
+    /** Creates a flow for a task based activity, starting from the [CPGTaskRequest]. */
     fun of(
       repository: WorkflowRepository,
       resource: CPGTaskRequest,
     ): ActivityFlow<CPGTaskRequest, CPGTaskEvent> = ActivityFlow(repository, resource)
 
+    /** Creates a flow for a service based activity, starting from the [CPGServiceRequest]. */
     fun of(
       repository: WorkflowRepository,
       resource: CPGServiceRequest,

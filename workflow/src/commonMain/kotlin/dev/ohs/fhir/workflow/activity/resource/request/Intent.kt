@@ -15,6 +15,13 @@
  */
 package dev.ohs.fhir.workflow.activity.resource.request
 
+/**
+ * [PROPOSAL], [PLAN] and [ORDER] are the only intents we are interested in. All the other Request
+ * Intent values are represented by [OTHER].
+ *
+ * See [codesystem-request-intent](https://www.hl7.org/FHIR/codesystem-request-intent.html) for the
+ * list of intents.
+ */
 sealed class Intent(val code: String?) {
   data object PROPOSAL : Intent("proposal")
 

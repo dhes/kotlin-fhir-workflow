@@ -25,7 +25,16 @@ import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
-@Suppress("UNCHECKED_CAST")
+/**
+ * Provides the implementation of the perform phase of the activity flow. See
+ * [general-activity-flow](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#general-activity-flow)
+ * for more info.
+ *
+ * @param repository the [WorkflowRepository] used to store / retrieve FHIR resources.
+ * @param e a concrete implementation of the sealed [CPGEventResource] class, e.g.
+ *   `CPGCommunicationEvent`.
+ */
+@Suppress("UNCHECKED_CAST") // Cast type erased CPGEventResource<*> to a concrete event type.
 class PerformPhase<E : CPGEventResource<*>>(private val repository: WorkflowRepository, e: E) :
   Phase.EventPhase<E> {
   private var event: E = e.copy() as E
@@ -101,6 +110,12 @@ class PerformPhase<E : CPGEventResource<*>>(private val repository: WorkflowRepo
       listOf(Phase.PhaseName.PROPOSAL, Phase.PhaseName.PLAN, Phase.PhaseName.ORDER)
     private val AllowedStatusForPhaseStart = listOf(EventStatus.INPROGRESS, EventStatus.PREPARATION)
 
+    /**
+     * Creates a draft event of type [E], named by [eventClassName] (e.g.
+     * `"CPGMedicationDispenseEvent"`), based on the state of the provided [inputPhase]. See
+     * [beginPerform](https://build.fhir.org/ig/HL7/cqf-recommendations/activityflow.html#perform)
+     * for more details.
+     */
     fun <E : CPGEventResource<*>> prepare(eventClassName: String, inputPhase: Phase): Result<E> =
       runCatching {
         check(inputPhase.getPhaseName() in AllowedPhases) {
@@ -119,6 +134,11 @@ class PerformPhase<E : CPGEventResource<*>>(private val repository: WorkflowRepo
         event as E
       }
 
+    /**
+     * Starts a new [PerformPhase] from the [inputPhase] and the [inputEvent] draft created by
+     * [prepare]. The [inputEvent] is created in the [repository] and the request it is based on is
+     * marked as completed.
+     */
     suspend fun <E : CPGEventResource<*>> initiate(
       repository: WorkflowRepository,
       inputPhase: Phase,
