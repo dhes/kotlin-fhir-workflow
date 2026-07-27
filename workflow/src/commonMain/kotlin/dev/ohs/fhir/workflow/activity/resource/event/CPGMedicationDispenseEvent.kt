@@ -70,6 +70,7 @@ class CPGMedicationDispenseEvent(resource: MedicationDispense) :
           status =
             Enumeration(value = MedicationDispense.MedicationDispenseStatusCodes.Preparation),
           medication = medReqToDispenseMedication(src.medication),
+          // Only set category if single, otherwise let the application fill it in.
           category = src.category.singleOrNull(),
           subject = src.subject,
           context = src.encounter,
