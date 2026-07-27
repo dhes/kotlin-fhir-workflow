@@ -272,6 +272,8 @@ class ActivityFlowDemoModel(
         "ID     : ${event.resourceType}/${event.logicalId}",
         "Status : ${event.getStatus()}",
         "BasedOn: ${event.getBasedOn()?.reference?.value ?: "—"}",
+        "",
+        "Additional Info: ${dosage(event.resource.dosageInstruction)}",
       )
       .joinToString("\n")
   }
