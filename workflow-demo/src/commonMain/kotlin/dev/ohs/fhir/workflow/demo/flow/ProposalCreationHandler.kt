@@ -20,9 +20,9 @@ import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.Patient
 import dev.ohs.fhir.model.r4.Resource
+import dev.ohs.fhir.workflow.FhirOperator
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
-import dev.ohs.fhir.workflow.operation.FhirOperator
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate

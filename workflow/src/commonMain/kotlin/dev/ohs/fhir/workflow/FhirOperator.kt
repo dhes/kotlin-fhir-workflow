@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.operation
+package dev.ohs.fhir.workflow
 
 import dev.ohs.fhir.model.r4.CarePlan
 import dev.ohs.fhir.model.r4.PlanDefinition
@@ -21,9 +21,7 @@ import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
-import dev.ohs.fhir.workflow.knowledge.CanonicalResolver
 import dev.ohs.fhir.workflow.processor.PlanDefinitionProcessor
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlinx.datetime.LocalDate
 
 /**
@@ -84,12 +82,12 @@ class FhirOperator(
    * measures server side instead.
    */
   fun evaluateMeasure(measureUrl: String): Nothing =
-    UnsupportedOperations.evaluateMeasure(measureUrl)
+    throw NotImplementedError("Measure \$evaluate ($measureUrl) requires CQL; run it server-side.")
 
   /**
    * Library evaluation requires CQL and is not supported by this port. Always throws; evaluate
    * libraries server side instead.
    */
   fun evaluateLibrary(libraryUrl: String): Nothing =
-    UnsupportedOperations.evaluateLibrary(libraryUrl)
+    throw NotImplementedError("Library \$evaluate ($libraryUrl) requires CQL; run it server-side.")
 }

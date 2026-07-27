@@ -15,6 +15,7 @@
  */
 package dev.ohs.fhir.workflow.activity.phase.event
 
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.phase.checkReferencesEqual
 import dev.ohs.fhir.workflow.activity.phase.request.BaseRequestPhase
@@ -23,7 +24,6 @@ import dev.ohs.fhir.workflow.activity.resource.event.EventStatus
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.activity.resource.request.Status
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
 /**
  * Provides the implementation of the perform phase of the activity flow. See
@@ -160,10 +160,10 @@ class PerformPhase<E : CPGEventResource<*>>(private val repository: WorkflowRepo
         "Couldn't find ${basedOn.reference?.value} in the database."
       }
       require(basedOnRequest.getIntent() in AllowedIntents) {
-        "Event can't be based on a request with ${basedOnRequest.getIntent()} intent."
+        "Order can't be based on a request with ${basedOnRequest.getIntent()} intent."
       }
       require(basedOnRequest.getStatus() == Status.ACTIVE) {
-        "Event can't be based on a request with ${basedOnRequest.getStatusCode()} status."
+        "Plan can't be based on a request with ${basedOnRequest.getStatusCode()} status."
       }
       require(inputEvent.getStatus() in AllowedStatusForPhaseStart) {
         "Input event is in ${inputEvent.getStatusCode()} status."

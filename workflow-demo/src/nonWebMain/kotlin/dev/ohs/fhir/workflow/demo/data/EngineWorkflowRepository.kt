@@ -21,7 +21,7 @@ import dev.ohs.fhir.model.r4.terminologies.ResourceType
 import dev.ohs.fhir.search.ReferenceClientParam
 import dev.ohs.fhir.search.Search
 import dev.ohs.fhir.search.UriClientParam
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
+import dev.ohs.fhir.workflow.WorkflowRepository
 
 /** Adapts the workflow library's [WorkflowRepository] onto `dev.ohs.fhir:fhir-engine`. */
 class EngineWorkflowRepository(private val engine: FhirEngine) : WorkflowRepository {

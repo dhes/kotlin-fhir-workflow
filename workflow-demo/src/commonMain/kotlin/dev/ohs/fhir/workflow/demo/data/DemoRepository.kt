@@ -15,7 +15,7 @@
  */
 package dev.ohs.fhir.workflow.demo.data
 
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
+import dev.ohs.fhir.workflow.WorkflowRepository
 
 /**
  * Returns the demo's [WorkflowRepository]: engine-backed on platforms with

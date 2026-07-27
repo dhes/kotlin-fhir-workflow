@@ -29,7 +29,7 @@ import kotlinx.coroutines.test.runTest
 
 class BaseRequestPhaseTest {
   private class TestPhase(
-    repo: dev.ohs.fhir.workflow.repository.WorkflowRepository,
+    repo: dev.ohs.fhir.workflow.WorkflowRepository,
     r: CPGRequestResource<*>,
   ) : BaseRequestPhase<CPGRequestResource<*>>(repo, r, Phase.PhaseName.PROPOSAL)
 

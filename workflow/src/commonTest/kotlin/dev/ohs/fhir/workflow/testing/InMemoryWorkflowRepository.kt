@@ -16,8 +16,8 @@
 package dev.ohs.fhir.workflow.testing
 
 import dev.ohs.fhir.model.r4.Resource
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.logicalId
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import dev.ohs.fhir.workflow.resourceTypeName
 
 /**

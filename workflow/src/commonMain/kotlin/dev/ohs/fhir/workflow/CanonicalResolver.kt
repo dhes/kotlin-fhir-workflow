@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.knowledge
+package dev.ohs.fhir.workflow
 
 import dev.ohs.fhir.model.r4.ActivityDefinition
 import dev.ohs.fhir.model.r4.PlanDefinition
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
 /**
  * Resolves knowledge artifacts (PlanDefinition/ActivityDefinition) by canonical URL, ignoring any

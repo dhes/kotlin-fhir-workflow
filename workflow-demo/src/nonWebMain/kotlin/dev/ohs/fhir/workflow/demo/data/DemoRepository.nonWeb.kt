@@ -15,7 +15,7 @@
  */
 package dev.ohs.fhir.workflow.demo.data
 
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
+import dev.ohs.fhir.workflow.WorkflowRepository
 
 actual fun demoWorkflowRepository(platformContext: Any): WorkflowRepository =
   EngineWorkflowRepository(fhirEngine(platformContext))

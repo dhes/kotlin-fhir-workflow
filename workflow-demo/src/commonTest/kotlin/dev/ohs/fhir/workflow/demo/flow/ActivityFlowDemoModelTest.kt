@@ -20,8 +20,8 @@ import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.String as FhirString
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.demo.data.InMemoryDemoRepository
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

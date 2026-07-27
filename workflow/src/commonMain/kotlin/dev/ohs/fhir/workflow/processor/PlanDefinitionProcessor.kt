@@ -34,7 +34,7 @@ import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.EvaluationResult
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
-import dev.ohs.fhir.workflow.knowledge.CanonicalResolver
+import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.resourceTypeName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement

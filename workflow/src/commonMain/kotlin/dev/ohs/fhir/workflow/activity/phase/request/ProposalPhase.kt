@@ -15,9 +15,9 @@
  */
 package dev.ohs.fhir.workflow.activity.phase.request
 
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
 /**
  * Provides implementation of the proposal phase of the activity flow. See

@@ -35,7 +35,7 @@ import dev.ohs.fhir.model.r4.Uri
 import dev.ohs.fhir.model.r4.terminologies.PublicationStatus
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
-import dev.ohs.fhir.workflow.knowledge.CanonicalResolver
+import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals

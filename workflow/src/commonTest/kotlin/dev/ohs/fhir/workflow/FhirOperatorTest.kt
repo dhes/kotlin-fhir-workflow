@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.operation
+package dev.ohs.fhir.workflow
 
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.Expression
@@ -68,11 +68,7 @@ class FhirOperatorTest {
   @Test
   fun shouldThrowWhenMeasureOrLibraryIsEvaluated() {
     val operator = FhirOperator(InMemoryWorkflowRepository())
-    assertFailsWith<WorkflowOperationNotSupportedException> {
-      operator.evaluateMeasure("Measure/x")
-    }
-    assertFailsWith<WorkflowOperationNotSupportedException> {
-      operator.evaluateLibrary("Library/x")
-    }
+    assertFailsWith<NotImplementedError> { operator.evaluateMeasure("Measure/x") }
+    assertFailsWith<NotImplementedError> { operator.evaluateLibrary("Library/x") }
   }
 }

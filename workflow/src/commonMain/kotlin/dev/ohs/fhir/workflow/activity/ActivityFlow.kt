@@ -16,6 +16,7 @@
 package dev.ohs.fhir.workflow.activity
 
 import dev.ohs.fhir.model.r4.Reference
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.phase.ReadOnlyRequestPhase
 import dev.ohs.fhir.workflow.activity.phase.event.PerformPhase
@@ -35,7 +36,6 @@ import dev.ohs.fhir.workflow.activity.resource.request.CPGTaskRequest
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.activity.resource.request.Status
 import dev.ohs.fhir.workflow.ref
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 
 /**
  * Manages the workflow of clinical recommendations according to the FHIR Clinical Practice
@@ -167,10 +167,14 @@ private constructor(
    * [Phase.getPhaseName] on the value returned by [getCurrentPhase] and then cast it to the
    * appropriate class.
    *
-   * The table below shows the mapping between [Phase.PhaseName] and the [Phase] implementations. |
-   * PhaseName | Class | |----------------------------|-----------------| |
-   * [Phase.PhaseName.PROPOSAL] | [ProposalPhase] | | [Phase.PhaseName.PLAN] | [PlanPhase] | |
-   * [Phase.PhaseName.ORDER] | [OrderPhase] | | [Phase.PhaseName.PERFORM] | [PerformPhase] |
+   * The table below shows the mapping between [Phase.PhaseName] and the [Phase] implementations.
+   *
+   * | PhaseName                  | Class           |
+   * |----------------------------|-----------------|
+   * | [Phase.PhaseName.PROPOSAL] | [ProposalPhase] |
+   * | [Phase.PhaseName.PLAN]     | [PlanPhase]     |
+   * | [Phase.PhaseName.ORDER]    | [OrderPhase]    |
+   * | [Phase.PhaseName.PERFORM]  | [PerformPhase]  |
    */
   fun getCurrentPhase(): Phase = currentPhase
 
@@ -182,9 +186,8 @@ private constructor(
     val phases = mutableListOf<ReadOnlyRequestPhase<R>>()
     var current: Phase? = currentPhase
     while (current != null) {
-      val c = current
       val basedOn: Reference? =
-        when (c) {
+        when (val c = current) {
           is Phase.RequestPhase<*> -> c.getRequestResource().getBasedOn()
           is Phase.EventPhase<*> -> c.getEventResource().getBasedOn()
           else -> null
@@ -322,6 +325,7 @@ private constructor(
           .flatMap { repository.searchByReferenceParam(it, "subject", subject) }
           .map { CPGEventResource.of(it) }
 
+      // This is used to fetch the `basedOn` resource for a request/event to form RequestChain
       val idToRequestMap: MutableMap<String, CPGRequestResource<*>> =
         listOf("MedicationRequest", "CommunicationRequest")
           .flatMap { repository.searchByReferenceParam(it, "subject", subject) }

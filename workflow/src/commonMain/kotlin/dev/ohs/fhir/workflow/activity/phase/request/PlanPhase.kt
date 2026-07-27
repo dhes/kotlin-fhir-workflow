@@ -16,12 +16,12 @@
 package dev.ohs.fhir.workflow.activity.phase.request
 
 import dev.ohs.fhir.model.r4.Resource
+import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.phase.Phase
 import dev.ohs.fhir.workflow.activity.phase.checkReferencesEqual
 import dev.ohs.fhir.workflow.activity.resource.request.CPGRequestResource
 import dev.ohs.fhir.workflow.activity.resource.request.Intent
 import dev.ohs.fhir.workflow.activity.resource.request.Status
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
 import kotlin.uuid.Uuid
 
 /**

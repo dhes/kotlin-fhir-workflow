@@ -19,7 +19,7 @@ import dev.ohs.fhir.model.r4.ActivityDefinition
 import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.Resource
-import dev.ohs.fhir.workflow.repository.WorkflowRepository
+import dev.ohs.fhir.workflow.WorkflowRepository
 
 /**
  * Pure-KMP [WorkflowRepository] backed by an in-memory map, for platforms without
