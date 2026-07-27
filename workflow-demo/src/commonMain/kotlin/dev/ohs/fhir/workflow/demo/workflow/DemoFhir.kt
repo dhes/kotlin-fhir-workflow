@@ -13,15 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.demo.flow
-
-import kotlin_fhir_workflow.workflow_demo.generated.resources.Res
-import org.jetbrains.compose.resources.ExperimentalResourceApi
+package dev.ohs.fhir.workflow.demo.workflow
 
 /**
- * Reads a bundled knowledge artifact, by path relative to `composeResources` (e.g. `files/pd/…`).
+ * FHIR resource-type names and the CPG event class name the demo passes to the workflow library.
  */
-typealias AssetReader = suspend (path: String) -> String
-
-@OptIn(ExperimentalResourceApi::class)
-val bundledAssets: AssetReader = { path -> Res.readBytes(path).decodeToString() }
+internal object DemoFhir {
+  const val PATIENT = "Patient"
+  const val MEDICATION_REQUEST = "MedicationRequest"
+  const val PLAN_DEFINITION = "PlanDefinition"
+  const val MEDICATION_DISPENSE_EVENT = "CPGMedicationDispenseEvent"
+}

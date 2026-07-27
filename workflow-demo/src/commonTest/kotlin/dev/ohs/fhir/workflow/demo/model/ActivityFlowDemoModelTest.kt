@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.demo.flow
+package dev.ohs.fhir.workflow.demo.model
 
 import dev.ohs.fhir.model.r4.CodeableConcept
 import dev.ohs.fhir.model.r4.Enumeration
@@ -22,26 +22,35 @@ import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.demo.data.InMemoryDemoRepository
+import dev.ohs.fhir.workflow.demo.workflow.MEDICATION_DISPENSE
+import dev.ohs.fhir.workflow.demo.workflow.ProposalCreationHandler
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 class ActivityFlowDemoModelTest {
 
-  private fun newModel(repository: WorkflowRepository = InMemoryDemoRepository()) =
-    ActivityFlowDemoModel(repository)
+  // An unconfined scope runs the model's launched actions eagerly, so each call completes before
+  // the
+  // next line — the demo's in-memory repository never really suspends.
+  private fun TestScope.newModel(repository: WorkflowRepository = InMemoryDemoRepository()) =
+    ActivityFlowDemoModel(repository, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
 
-  private fun cards(model: ActivityFlowDemoModel) = model.cards.value.associateBy { it.phase }
+  private fun cards(model: ActivityFlowDemoModel) =
+    model.uiState.value.cards.associateBy { it.phase }
 
   @Test
   fun shouldStartAtInitializeWhenDependenciesAreNotInstalled() = runTest {
     val model = newModel()
     model.refresh()
 
-    assertEquals(FlowPhase.INITIALIZE, model.phase.value)
-    assertFalse(model.initialized.value)
+    assertEquals(FlowPhase.INITIALIZE, model.uiState.value.phase)
+    assertFalse(model.uiState.value.initialized)
     cards(model).values.forEach { assertFalse(it.isActive) }
   }
 
@@ -50,9 +59,17 @@ class ActivityFlowDemoModelTest {
     val model = newModel()
     model.installDependencies()
 
-    assertTrue(model.initialized.value)
-    assertEquals(FlowPhase.PROPOSAL, model.phase.value)
+    assertTrue(model.uiState.value.initialized)
+    assertEquals(FlowPhase.PROPOSAL, model.uiState.value.phase)
     assertTrue(cards(model).getValue(FlowPhase.PROPOSAL).isActive)
+  }
+
+  @Test
+  fun shouldSurfaceThePatientNameOnceInstalled() = runTest {
+    val model = newModel()
+    model.installDependencies()
+
+    assertEquals("Mr. John Doe Sr.", model.uiState.value.patientName)
   }
 
   @Test
@@ -69,7 +86,7 @@ class ActivityFlowDemoModelTest {
     assertTrue(proposal.details.contains("\"periodUnit\": \"d\""))
 
     // The proposal is done; the plan is what's startable next.
-    assertEquals(FlowPhase.PLAN, model.phase.value)
+    assertEquals(FlowPhase.PLAN, model.uiState.value.phase)
     assertTrue(cards(model).getValue(FlowPhase.PLAN).isActive)
   }
 
@@ -95,7 +112,7 @@ class ActivityFlowDemoModelTest {
     phaseCards = cards(model)
     assertTrue(phaseCards.getValue(FlowPhase.PERFORM).details.contains("Status : PREPARATION"))
     assertTrue(phaseCards.getValue(FlowPhase.ORDER).details.contains("Status : COMPLETED"))
-    assertEquals(FlowPhase.NONE, model.phase.value)
+    assertEquals(FlowPhase.NONE, model.uiState.value.phase)
   }
 
   @Test
@@ -110,7 +127,7 @@ class ActivityFlowDemoModelTest {
     val relaunched = newModel(repository)
     relaunched.refresh()
 
-    assertEquals(FlowPhase.ORDER, relaunched.phase.value)
+    assertEquals(FlowPhase.ORDER, relaunched.uiState.value.phase)
     val resumed = cards(relaunched)
     assertTrue(resumed.getValue(FlowPhase.PROPOSAL).details.contains("Intent : proposal"))
     assertTrue(resumed.getValue(FlowPhase.PLAN).details.contains("Intent : plan"))
@@ -133,7 +150,7 @@ class ActivityFlowDemoModelTest {
     val relaunched = newModel(repository)
     relaunched.refresh()
 
-    assertEquals(FlowPhase.PROPOSAL, relaunched.phase.value)
+    assertEquals(FlowPhase.PROPOSAL, relaunched.uiState.value.phase)
     cards(relaunched).values.forEach { assertEquals("—", it.details) }
   }
 
@@ -160,7 +177,7 @@ class ActivityFlowDemoModelTest {
 
     model.restart()
 
-    assertEquals(FlowPhase.PROPOSAL, model.phase.value)
+    assertEquals(FlowPhase.PROPOSAL, model.uiState.value.phase)
     cards(model).values.forEach { assertEquals("—", it.details) }
     assertEquals(null, repository.read("MedicationRequest", orderId))
 
@@ -169,7 +186,7 @@ class ActivityFlowDemoModelTest {
   }
 
   private fun idOf(model: ActivityFlowDemoModel, phase: FlowPhase) =
-    model.cards.value
+    model.uiState.value.cards
       .first { it.phase == phase }
       .details
       .substringAfter("MedicationRequest/")

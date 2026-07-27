@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.demo.flow
+package dev.ohs.fhir.workflow.demo.workflow
 
 /**
  * A selectable activity flow: the knowledge artifacts to install and the patient to run them

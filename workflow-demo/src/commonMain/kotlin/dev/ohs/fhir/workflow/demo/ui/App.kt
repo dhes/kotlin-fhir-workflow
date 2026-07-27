@@ -61,10 +61,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.ohs.fhir.workflow.demo.data.demoWorkflowRepository
-import dev.ohs.fhir.workflow.demo.flow.ActivityFlowDemoModel
-import dev.ohs.fhir.workflow.demo.flow.FlowPhase
-import dev.ohs.fhir.workflow.demo.flow.PhaseCard
-import kotlinx.coroutines.launch
+import dev.ohs.fhir.workflow.demo.model.ActivityFlowDemoModel
+import dev.ohs.fhir.workflow.demo.model.FlowPhase
+import dev.ohs.fhir.workflow.demo.model.PhaseCard
 
 /**
  * The demo's single screen: installs the DailyApple knowledge artifacts, generates a proposal from
@@ -74,13 +73,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun App(platformContext: Any = Unit) {
   DemoTheme {
-    val repository = remember { demoWorkflowRepository(platformContext) }
-    val model = remember { ActivityFlowDemoModel(repository) }
     val scope = rememberCoroutineScope()
+    val repository = remember { demoWorkflowRepository(platformContext) }
+    val model = remember { ActivityFlowDemoModel(repository, scope) }
 
-    val cards by model.cards.collectAsState()
-    val progress by model.progress.collectAsState()
-    val initialized by model.initialized.collectAsState()
+    val state by model.uiState.collectAsState()
 
     LaunchedEffect(Unit) { model.refresh() }
 
@@ -90,28 +87,28 @@ fun App(platformContext: Any = Unit) {
           modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-          PatientCard()
+          PatientCard(state.patientName)
 
           Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
-              enabled = !initialized && !progress,
-              onClick = { scope.launch { model.installDependencies() } },
+              enabled = !state.initialized && !state.progress,
+              onClick = { model.installDependencies() },
             ) {
               Text("Initialize")
             }
-            OutlinedButton(enabled = !progress, onClick = { scope.launch { model.restart() } }) {
+            OutlinedButton(enabled = !state.progress, onClick = { model.restart() }) {
               Text("Restart Flow")
             }
           }
 
           PhaseSection(
-            cards = cards,
-            enabled = !progress,
-            onStart = { started -> scope.launch { model.start(started) } },
+            cards = state.cards,
+            enabled = !state.progress,
+            onStart = { started -> model.start(started) },
           )
         }
 
-        if (progress) {
+        if (state.progress) {
           CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
       }
@@ -137,13 +134,9 @@ private fun DemoTopBar() {
 }
 
 @Composable
-private fun PatientCard() {
+private fun PatientCard(name: String) {
   Card(modifier = Modifier.fillMaxWidth()) {
-    Text(
-      "Mr. John Doe Sr.",
-      style = MaterialTheme.typography.headlineSmall,
-      modifier = Modifier.padding(16.dp),
-    )
+    Text(name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
   }
 }
 

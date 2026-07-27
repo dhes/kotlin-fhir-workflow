@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.demo.flow
+package dev.ohs.fhir.workflow.demo.workflow
 
 import dev.ohs.fhir.model.r4.Bundle
 import dev.ohs.fhir.model.r4.Enumeration
@@ -23,6 +23,8 @@ import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.workflow.FhirOperator
 import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.resource.request.CPGMedicationRequest
+import dev.ohs.fhir.workflow.demo.data.AssetReader
+import dev.ohs.fhir.workflow.demo.data.bundledAssets
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
@@ -49,7 +51,7 @@ class ProposalCreationHandler(
    */
   suspend fun checkInstalledDependencies(configuration: DemoConfiguration): Boolean =
     repository
-      .searchByUri("PlanDefinition", "url", configuration.planDefinitionCanonical)
+      .searchByUri(DemoFhir.PLAN_DEFINITION, "url", configuration.planDefinitionCanonical)
       .isNotEmpty()
 
   suspend fun installDependencies(configuration: DemoConfiguration) {
@@ -69,7 +71,7 @@ class ProposalCreationHandler(
    */
   suspend fun generateProposal(configuration: DemoConfiguration): CPGMedicationRequest? {
     val patient =
-      repository.read("Patient", configuration.patientId) as? Patient
+      repository.read(DemoFhir.PATIENT, configuration.patientId) as? Patient
         ?: error("Patient/${configuration.patientId} is not installed")
 
     val carePlan =
@@ -96,7 +98,11 @@ class ProposalCreationHandler(
    */
   private suspend fun existingRequests(patientId: String): Bundle {
     val requests =
-      repository.searchByReferenceParam("MedicationRequest", "subject", "Patient/$patientId")
+      repository.searchByReferenceParam(
+        DemoFhir.MEDICATION_REQUEST,
+        "subject",
+        "Patient/$patientId",
+      )
     return Bundle(
       type = Enumeration(value = Bundle.BundleType.Collection),
       entry = requests.map { Bundle.Entry(resource = it) },

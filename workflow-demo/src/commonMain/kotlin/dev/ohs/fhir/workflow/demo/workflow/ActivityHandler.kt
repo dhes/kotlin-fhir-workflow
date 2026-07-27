@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package dev.ohs.fhir.workflow.demo.flow
+package dev.ohs.fhir.workflow.demo.workflow
 
 import dev.ohs.fhir.workflow.activity.ActivityFlow
 import dev.ohs.fhir.workflow.activity.phase.Phase
@@ -49,7 +49,7 @@ class ActivityHandler(
     activateCurrentRequest()
     val preparedEvent =
       activityFlow
-        .preparePerform<CPGMedicationDispenseEvent>("CPGMedicationDispenseEvent")
+        .preparePerform<CPGMedicationDispenseEvent>(DemoFhir.MEDICATION_DISPENSE_EVENT)
         .getOrThrow()
     activityFlow.initiatePerform(preparedEvent).getOrThrow()
   }
