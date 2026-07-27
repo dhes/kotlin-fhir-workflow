@@ -18,9 +18,10 @@ package dev.ohs.fhir.workflow.demo.data
 import dev.ohs.fhir.workflow.WorkflowRepository
 
 /**
- * Returns the demo's [WorkflowRepository]: engine-backed on platforms with
- * `dev.ohs.fhir:fhir-engine` (nonWeb), in-memory on web (no engine target).
+ * The demo's [WorkflowRepository], backed by `dev.ohs.fhir:fhir-engine` on every platform,
+ * including wasmJs.
  *
  * @param platformContext Platform-specific context (e.g. Android `Context`). Ignored where unused.
  */
-expect fun demoWorkflowRepository(platformContext: Any = Unit): WorkflowRepository
+fun demoWorkflowRepository(platformContext: Any = Unit): WorkflowRepository =
+  EngineWorkflowRepository(fhirEngine(platformContext))

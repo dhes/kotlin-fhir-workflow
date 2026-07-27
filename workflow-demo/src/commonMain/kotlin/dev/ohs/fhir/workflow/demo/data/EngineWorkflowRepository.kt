@@ -15,12 +15,12 @@
  */
 package dev.ohs.fhir.workflow.demo.data
 
-import dev.ohs.fhir.FhirEngine
+import dev.ohs.fhir.engine.FhirEngine
+import dev.ohs.fhir.engine.search.ReferenceClientParam
+import dev.ohs.fhir.engine.search.Search
+import dev.ohs.fhir.engine.search.UriClientParam
 import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.model.r4.terminologies.ResourceType
-import dev.ohs.fhir.search.ReferenceClientParam
-import dev.ohs.fhir.search.Search
-import dev.ohs.fhir.search.UriClientParam
 import dev.ohs.fhir.workflow.WorkflowRepository
 
 /** Adapts the workflow library's [WorkflowRepository] onto `dev.ohs.fhir:fhir-engine`. */

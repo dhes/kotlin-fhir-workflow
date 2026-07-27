@@ -15,7 +15,22 @@
  */
 package dev.ohs.fhir.workflow.demo.data
 
-import dev.ohs.fhir.workflow.WorkflowRepository
+import dev.ohs.fhir.engine.FhirEngine
+import dev.ohs.fhir.engine.FhirEngineConfiguration
+import dev.ohs.fhir.engine.FhirEngineProvider
 
-actual fun demoWorkflowRepository(platformContext: Any): WorkflowRepository =
-  InMemoryDemoRepository()
+/**
+ * Returns the shared [FhirEngine] instance, initializing [FhirEngineProvider] on first call.
+ *
+ * @param platformContext Platform-specific context (e.g. Android `Context`). Ignored on
+ *   desktop/iOS.
+ */
+fun fhirEngine(platformContext: Any = Unit): FhirEngine {
+  if (FhirEngineProvider.isNotInitialized()) {
+    FhirEngineProvider.init(
+      FhirEngineConfiguration(enableEncryptionIfSupported = false),
+      platformContext,
+    )
+  }
+  return FhirEngineProvider.getInstance(platformContext)
+}

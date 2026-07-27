@@ -1,8 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinHierarchyTemplate
 
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
@@ -53,20 +51,6 @@ kotlin {
     binaries.executable()
   }
 
-  // fhir-engine (nonWebMain) has no wasmJs target, so group the engine-backed platforms apart
-  // from the web target, mirroring OpenSRP's opensrp-app source-set hierarchy.
-  @OptIn(ExperimentalKotlinGradlePluginApi::class)
-  applyHierarchyTemplate(KotlinHierarchyTemplate.default) {
-    common {
-      group("nonWeb") {
-        withAndroidTarget()
-        withIos()
-        withJvm()
-      }
-      group("web") { withWasmJs() }
-    }
-  }
-
   targets.configureEach {
     compilations.configureEach {
       compilerOptions.configure {
@@ -84,6 +68,7 @@ kotlin {
     commonMain.dependencies {
       implementation(project(":workflow"))
       implementation(libs.ohs.fhir.model)
+      implementation(libs.ohs.fhir.engine)
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.kotlinx.datetime)
       implementation(libs.kotlinx.serialization.json)
@@ -95,7 +80,6 @@ kotlin {
       implementation(compose.ui)
       implementation(compose.components.resources)
     }
-    val nonWebMain by getting { dependencies { implementation(libs.ohs.fhir.engine) } }
     androidMain.dependencies {
       implementation(libs.androidx.activity.compose)
       // Provides Dispatchers.Main on Android via ServiceLoader (Room's DB coroutine needs it).
