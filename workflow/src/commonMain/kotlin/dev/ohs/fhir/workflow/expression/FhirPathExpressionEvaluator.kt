@@ -16,6 +16,7 @@
 package dev.ohs.fhir.workflow.expression
 
 import dev.ohs.fhir.fhirpath.FhirPathEngine
+import dev.ohs.fhir.fhirpath.forR4
 
 /** Reference [ExpressionEvaluator]: evaluates `text/fhirpath` expressions via [FhirPathEngine]. */
 class FhirPathExpressionEvaluator(private val engine: FhirPathEngine = FhirPathEngine.forR4()) :

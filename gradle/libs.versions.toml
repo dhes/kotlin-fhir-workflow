@@ -1,9 +1,9 @@
 [versions]
 kotlin = "2.3.21"
 android-gradle-plugin = "8.13.0"
-ohs-fhir-model = "1.0.0-beta05"
-ohs-fhir-path = "1.0.0-beta03"
-ohs-fhir-engine = "2.0.0-alpha01"
+ohs-fhir-model = "1.0.0-rc01"
+ohs-fhir-path = "1.0.0-beta04"
+ohs-fhir-engine = "2.0.0-alpha02"
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.6.2"
 kotlinx-serialization = "1.8.0"
@@ -15,7 +15,7 @@ kt-lint = "1.8.0"
 
 [libraries]
 ohs-fhir-model = { module = "dev.ohs.fhir:fhir-model", version.ref = "ohs-fhir-model" }
-ohs-fhir-path = { module = "dev.ohs.fhir:fhir-path", version.ref = "ohs-fhir-path" }
+ohs-fhir-path = { module = "dev.ohs.fhir:fhir-path-r4", version.ref = "ohs-fhir-path" }
 ohs-fhir-engine = { module = "dev.ohs.fhir:fhir-engine", version.ref = "ohs-fhir-engine" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }

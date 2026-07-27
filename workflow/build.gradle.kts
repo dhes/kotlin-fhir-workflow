@@ -20,7 +20,8 @@ kotlin {
   }
 
   jvm("desktop")
-  iosX64()
+  // iosX64 (Intel iOS simulator) is omitted: fhir-model/fhir-path no longer publish it, and the
+  // demo already targets only iosArm64 + iosSimulatorArm64.
   iosArm64()
   iosSimulatorArm64()
 
