@@ -16,6 +16,7 @@
 package dev.ohs.fhir.workflow.processor
 
 import dev.ohs.fhir.model.r4.ActivityDefinition
+import dev.ohs.fhir.model.r4.Canonical
 import dev.ohs.fhir.model.r4.CarePlan
 import dev.ohs.fhir.model.r4.CodeableConcept
 import dev.ohs.fhir.model.r4.CommunicationRequest
@@ -30,11 +31,12 @@ import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.model.r4.ServiceRequest
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
+import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.EvaluationResult
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
-import dev.ohs.fhir.workflow.CanonicalResolver
+import dev.ohs.fhir.workflow.logicalId
 import dev.ohs.fhir.workflow.resourceTypeName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -57,14 +59,16 @@ class PlanDefinitionProcessor(
 
     val requestGroup =
       RequestGroup(
-        id = "rg-${planDefinition.id}",
+        id = planDefinition.logicalId,
         status = Enumeration(value = RequestGroup.RequestStatus.Active),
         intent = Enumeration(value = RequestGroup.RequestIntent.Proposal),
         action = groupActions,
       )
 
     return CarePlan(
-      id = "careplan-${planDefinition.id}",
+      id = planDefinition.logicalId,
+      instantiatesCanonical =
+        planDefinition.url?.value?.let { listOf(Canonical(value = it)) } ?: emptyList(),
       status = Enumeration(value = CarePlan.RequestStatus.Active),
       intent = Enumeration(value = CarePlan.CarePlanIntent.Plan),
       subject = subjectReference(context),
@@ -75,7 +79,7 @@ class PlanDefinitionProcessor(
         } else {
           listOf(
             CarePlan.Activity(
-              reference = Reference(reference = FhirString(value = "#${requestGroup.id}"))
+              reference = Reference(reference = FhirString(value = "#${requestGroup.logicalId}"))
             )
           )
         },
@@ -114,7 +118,7 @@ class PlanDefinitionProcessor(
           title = title,
           description = action.description,
           extension = action.extension,
-          resource = request?.let { Reference(reference = FhirString(value = "#${it.id}")) },
+          resource = request?.let { Reference(reference = FhirString(value = "#${it.logicalId}")) },
           action = children,
         )
       )
@@ -170,15 +174,16 @@ class PlanDefinitionProcessor(
   ): Resource? {
     val canonical = action.definition?.asCanonical()?.value?.value ?: return null
     val ad = resolver.resolveActivityDefinition(canonical) ?: return null
-    val id = "request-${planDefinition.id}-${action.id ?: ad.id}"
+    val id = action.id ?: ad.logicalId
     val subject = subjectReference(context)
-    val basedOn = Reference(reference = FhirString(value = "#rg-${planDefinition.id}"))
+    val basedOn = Reference(reference = FhirString(value = "#${planDefinition.logicalId}"))
     val request: Resource =
       when (ad.kind?.value) {
         ActivityDefinition.RequestResourceType.MedicationRequest ->
           MedicationRequest(
             id = id,
             meta = metaFrom(ad),
+            instantiatesCanonical = listOf(Canonical(value = canonical)),
             status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
             intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Proposal),
             priority = priorityFrom(ad),
@@ -192,6 +197,7 @@ class PlanDefinitionProcessor(
           ServiceRequest(
             id = id,
             meta = metaFrom(ad),
+            instantiatesCanonical = listOf(Canonical(value = canonical)),
             status = Enumeration(value = ServiceRequest.RequestStatus.Active),
             intent = Enumeration(value = ServiceRequest.RequestIntent.Proposal),
             code = ad.code,
@@ -212,6 +218,7 @@ class PlanDefinitionProcessor(
           Task(
             id = id,
             meta = metaFrom(ad),
+            instantiatesCanonical = Canonical(value = canonical),
             status = Enumeration(value = Task.TaskStatus.Requested),
             intent = Enumeration(value = Task.TaskIntent.Proposal),
             code = ad.code,

@@ -33,9 +33,9 @@ import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.model.r4.Uri
 import dev.ohs.fhir.model.r4.terminologies.PublicationStatus
+import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
-import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -345,6 +345,42 @@ class PlanDefinitionProcessorTest {
 
     val serviceRequest = carePlan.contained.filterIsInstance<ServiceRequest>().single()
     assertEquals("Patient/p1", serviceRequest.subject.reference?.value)
+    // The generated CarePlan links back to the PlanDefinition it was applied from.
+    assertEquals(
+      listOf("https://ohs.fhir.org/PlanDefinition/pd-1"),
+      carePlan.instantiatesCanonical.map { it.value },
+    )
+    // Bare ids, no decoration; contained resources referenced with a leading '#'.
+    assertEquals("pd-1", carePlan.id)
+    assertEquals("#pd-1", serviceRequest.basedOn.single().reference?.value)
+  }
+
+  @Test
+  fun shouldLinkInstantiatedRequestToItsActivityDefinition() = runTest {
+    val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-1"
+    val service = InMemoryWorkflowRepository()
+    val serviceRequest =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(service))
+        .apply(
+          service.planForKind(ActivityDefinition.RequestResourceType.ServiceRequest),
+          EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7)),
+        )
+        .contained
+        .filterIsInstance<ServiceRequest>()
+        .single()
+    assertEquals(listOf(adUrl), serviceRequest.instantiatesCanonical.map { it.value })
+
+    val task = InMemoryWorkflowRepository()
+    val taskRequest =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(task))
+        .apply(
+          task.planForKind(ActivityDefinition.RequestResourceType.Task),
+          EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7)),
+        )
+        .contained
+        .filterIsInstance<Task>()
+        .single()
+    assertEquals(adUrl, taskRequest.instantiatesCanonical?.value)
   }
 
   @Test
@@ -531,6 +567,7 @@ class PlanDefinitionProcessorTest {
     )
     return PlanDefinition(
       id = "pd-1",
+      url = Uri(value = "https://ohs.fhir.org/PlanDefinition/pd-1"),
       status = Enumeration(value = PublicationStatus.Active),
       action =
         listOf(

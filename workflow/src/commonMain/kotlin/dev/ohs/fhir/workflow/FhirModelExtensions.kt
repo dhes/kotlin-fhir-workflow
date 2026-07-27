@@ -29,5 +29,6 @@ internal val Reference.ref: String?
 /** Resource type name as used in references, e.g. "CommunicationRequest". */
 internal fun Resource.resourceTypeName(): String = this::class.simpleName ?: error("no type")
 
+/** The bare logical id, without any trailing `/_history/{version}` (or other) segment. */
 internal val Resource.logicalId: String?
-  get() = id
+  get() = id?.substringBefore("/")
