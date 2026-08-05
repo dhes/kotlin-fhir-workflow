@@ -16,12 +16,18 @@
 package dev.ohs.fhir.workflow
 
 import dev.ohs.fhir.model.r4.ActivityDefinition
+import dev.ohs.fhir.model.r4.Code
+import dev.ohs.fhir.model.r4.CodeableConcept
+import dev.ohs.fhir.model.r4.Coding
 import dev.ohs.fhir.model.r4.Enumeration
+import dev.ohs.fhir.model.r4.Library
+import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.Uri
 import dev.ohs.fhir.model.r4.terminologies.PublicationStatus
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 
 class CanonicalResolverTest {
@@ -41,7 +47,41 @@ class CanonicalResolverTest {
           )
         )
       }
-    val resolved = CanonicalResolver(repo).resolveActivityDefinition("$url|1.0.0")
+    val resolved = RepositoryCanonicalResolver(repo).resolve<ActivityDefinition>("$url|1.0.0")
     assertEquals("ad-1", resolved?.id)
   }
+
+  /** Any canonical resource resolves, not only the two kinds `$apply` happens to need. */
+  @Test
+  fun shouldResolveALibrary() = runTest {
+    val url = "http://example.org/Library/FHIRHelpers"
+    val repo = repositoryWith(library(url))
+
+    val resolved = RepositoryCanonicalResolver(repo).resolve<Library>(url)
+
+    assertEquals("fhir-helpers", resolved?.id)
+  }
+
+  @Test
+  fun shouldReturnNothingWhenTheArtifactIsOfAnotherType() = runTest {
+    val url = "http://example.org/Library/FHIRHelpers"
+    val repo = repositoryWith(library(url))
+
+    assertNull(RepositoryCanonicalResolver(repo).resolve<PlanDefinition>(url))
+  }
+
+  private suspend fun repositoryWith(library: Library) =
+    InMemoryWorkflowRepository().apply {
+      registerUriIndex("Library", "url") { listOf((it as Library).url?.value ?: "") }
+      create(library)
+    }
+
+  /** R4 makes `Library.type` and `Library.status` mandatory. */
+  private fun library(url: String) =
+    Library(
+      id = "fhir-helpers",
+      url = Uri(value = url),
+      status = Enumeration(value = PublicationStatus.Active),
+      type = CodeableConcept(coding = listOf(Coding(code = Code(value = "logic-library")))),
+    )
 }

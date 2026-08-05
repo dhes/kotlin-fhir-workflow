@@ -33,7 +33,7 @@ import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
 import dev.ohs.fhir.model.r4.Uri
 import dev.ohs.fhir.model.r4.terminologies.PublicationStatus
-import dev.ohs.fhir.workflow.CanonicalResolver
+import dev.ohs.fhir.workflow.RepositoryCanonicalResolver
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
@@ -87,7 +87,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx =
       EvaluationContext(
         subject = Patient(id = "p1", active = dev.ohs.fhir.model.r4.Boolean(value = true)),
@@ -125,7 +126,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx =
       EvaluationContext(
         subject = Patient(id = "p1", active = dev.ohs.fhir.model.r4.Boolean(value = true)),
@@ -140,7 +142,7 @@ class PlanDefinitionProcessorTest {
     val processor =
       PlanDefinitionProcessor(
         ExpressionEvaluatorRouter(),
-        CanonicalResolver(InMemoryWorkflowRepository()),
+        RepositoryCanonicalResolver(InMemoryWorkflowRepository()),
       )
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     assertFailsWith<NotImplementedError> {
@@ -153,7 +155,7 @@ class PlanDefinitionProcessorTest {
     val processor =
       PlanDefinitionProcessor(
         ExpressionEvaluatorRouter(),
-        CanonicalResolver(InMemoryWorkflowRepository()),
+        RepositoryCanonicalResolver(InMemoryWorkflowRepository()),
       )
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     assertFailsWith<IllegalStateException> {
@@ -204,7 +206,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     val carePlan = processor.apply(pd, ctx)
 
@@ -246,7 +249,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     val carePlan = processor.apply(pd, ctx)
 
@@ -276,7 +280,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     val carePlan = processor.apply(pd, ctx)
 
@@ -295,7 +300,8 @@ class PlanDefinitionProcessorTest {
           CodeableConcept(text = FhirString(value = "Apple, daily"))
         ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     val carePlan = processor.apply(pd, ctx)
 
@@ -322,7 +328,8 @@ class PlanDefinitionProcessorTest {
         priority = ActivityDefinition.RequestPriority.Routine,
         dosage = listOf(Dosage(text = FhirString(value = "One apple a day"))),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     val carePlan = processor.apply(pd, ctx)
 
@@ -339,7 +346,8 @@ class PlanDefinitionProcessorTest {
   fun shouldInstantiateServiceRequestWhenKindIsServiceRequest() = runTest {
     val repo = InMemoryWorkflowRepository()
     val pd = repo.planForKind(ActivityDefinition.RequestResourceType.ServiceRequest)
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
     val carePlan = processor.apply(pd, ctx)
 
@@ -360,7 +368,7 @@ class PlanDefinitionProcessorTest {
     val adUrl = "https://ohs.fhir.org/ActivityDefinition/ad-1"
     val service = InMemoryWorkflowRepository()
     val serviceRequest =
-      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(service))
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(service))
         .apply(
           service.planForKind(ActivityDefinition.RequestResourceType.ServiceRequest),
           EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7)),
@@ -372,7 +380,7 @@ class PlanDefinitionProcessorTest {
 
     val task = InMemoryWorkflowRepository()
     val taskRequest =
-      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(task))
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(task))
         .apply(
           task.planForKind(ActivityDefinition.RequestResourceType.Task),
           EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7)),
@@ -425,7 +433,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 13))
     val carePlan = processor.apply(pd, ctx)
 
@@ -486,7 +495,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 13))
     val carePlan = processor.apply(pd, ctx)
 
@@ -536,7 +546,8 @@ class PlanDefinitionProcessorTest {
             )
           ),
       )
-    val processor = PlanDefinitionProcessor(ExpressionEvaluatorRouter(), CanonicalResolver(repo))
+    val processor =
+      PlanDefinitionProcessor(ExpressionEvaluatorRouter(), RepositoryCanonicalResolver(repo))
     val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 13))
     assertFailsWith<Exception> { processor.apply(pd, ctx) }
   }

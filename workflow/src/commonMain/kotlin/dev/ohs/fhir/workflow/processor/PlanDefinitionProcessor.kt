@@ -37,6 +37,7 @@ import dev.ohs.fhir.workflow.expression.EvaluationResult
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
 import dev.ohs.fhir.workflow.logicalId
+import dev.ohs.fhir.workflow.resolve
 import dev.ohs.fhir.workflow.resourceTypeName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -155,7 +156,7 @@ class PlanDefinitionProcessor(
 
   private suspend fun resolveTitle(action: PlanDefinition.Action): FhirString? {
     val canonical = action.definition?.asCanonical()?.value?.value ?: return null
-    return resolver.resolveActivityDefinition(canonical)?.title
+    return resolver.resolve<ActivityDefinition>(canonical)?.title
   }
 
   /**
@@ -173,7 +174,7 @@ class PlanDefinitionProcessor(
     context: EvaluationContext,
   ): Resource? {
     val canonical = action.definition?.asCanonical()?.value?.value ?: return null
-    val ad = resolver.resolveActivityDefinition(canonical) ?: return null
+    val ad = resolver.resolve<ActivityDefinition>(canonical) ?: return null
     val id = action.id ?: ad.logicalId
     val subject = subjectReference(context)
     val basedOn = Reference(reference = FhirString(value = "#${planDefinition.logicalId}"))

@@ -15,21 +15,47 @@
  */
 package dev.ohs.fhir.workflow
 
-import dev.ohs.fhir.model.r4.ActivityDefinition
-import dev.ohs.fhir.model.r4.PlanDefinition
+import dev.ohs.fhir.model.r4.Resource
+import dev.ohs.fhir.model.r4.terminologies.ResourceType
 
 /**
- * Resolves knowledge artifacts (PlanDefinition/ActivityDefinition) by canonical URL, ignoring any
- * `|version` suffix. Replaces the cqframework KnowledgeManager.
+ * Resolves a knowledge artifact by canonical URL, ignoring any `|version` suffix. Replaces the
+ * cqframework KnowledgeManager.
+ *
+ * Any canonical resource can be asked for, not only the PlanDefinitions and ActivityDefinitions
+ * that `$apply` needs today: a Library, a ValueSet or a StructureDefinition resolves the same way,
+ * so the CQL and validation work still to come needs no further API.
+ *
+ * [RepositoryCanonicalResolver] reads the artifacts back out of the [WorkflowRepository] that also
+ * holds the patient data. Consumers keeping their artifacts somewhere else — in a FHIR NPM package
+ * cache managed by a knowledge library, say — pass their own implementation to [FhirOperator]
+ * instead, so that neither library has to depend on the other.
  */
-class CanonicalResolver(private val repository: WorkflowRepository) {
+fun interface CanonicalResolver {
+  /**
+   * Returns the resource of [type] published under [canonical], or `null` if there is none.
+   *
+   * Prefer the reified [resolve] overload from Kotlin; this is the form Swift and Java callers see.
+   *
+   * @param canonical the canonical URL, with or without a `|version` suffix.
+   */
+  suspend fun resolve(type: ResourceType, canonical: String): Resource?
+}
 
-  suspend fun resolveActivityDefinition(canonical: String): ActivityDefinition? =
-    resolve("ActivityDefinition", canonical) as? ActivityDefinition
+/**
+ * Returns the [T] published under [canonical], or `null` if there is none of that type.
+ *
+ * ```
+ * val library = resolver.resolve<Library>("http://example.org/Library/FHIRHelpers|4.0.1")
+ * ```
+ */
+suspend inline fun <reified T : Resource> CanonicalResolver.resolve(canonical: String): T? =
+  resolve(ResourceType.fromCode(T::class.simpleName ?: error("Anonymous resource type")), canonical)
+    as? T
 
-  suspend fun resolvePlanDefinition(canonical: String): PlanDefinition? =
-    resolve("PlanDefinition", canonical) as? PlanDefinition
+/** The default [CanonicalResolver]: the knowledge artifacts live in the [WorkflowRepository]. */
+class RepositoryCanonicalResolver(private val repository: WorkflowRepository) : CanonicalResolver {
 
-  private suspend fun resolve(type: String, canonical: String) =
-    repository.searchByUri(type, "url", canonical.substringBefore("|")).firstOrNull()
+  override suspend fun resolve(type: ResourceType, canonical: String): Resource? =
+    repository.searchByUri(type.getCode(), "url", canonical.substringBefore("|")).firstOrNull()
 }

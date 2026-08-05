@@ -22,6 +22,7 @@ import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.RequestGroup
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.terminologies.PublicationStatus
+import dev.ohs.fhir.model.r4.terminologies.ResourceType
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -66,9 +67,31 @@ class FhirOperatorTest {
   }
 
   @Test
+  fun shouldResolvePlanDefinitionWithTheSuppliedResolver() = runTest {
+    val pd = PlanDefinition(id = "epi", status = Enumeration(value = PublicationStatus.Active))
+    val resolver = CanonicalResolver { type, canonical ->
+      pd.takeIf { type == ResourceType.PlanDefinition && canonical == PLAN_DEFINITION_CANONICAL }
+    }
+    val operator = FhirOperator(InMemoryWorkflowRepository(), resolver = resolver)
+
+    val carePlan =
+      operator.generateCarePlan(
+        planDefinitionCanonical = PLAN_DEFINITION_CANONICAL,
+        subject = Patient(id = "p1"),
+        today = LocalDate(2026, 7, 7),
+      )
+
+    assertEquals("epi", carePlan.id)
+  }
+
+  @Test
   fun shouldThrowWhenMeasureOrLibraryIsEvaluated() {
     val operator = FhirOperator(InMemoryWorkflowRepository())
     assertFailsWith<NotImplementedError> { operator.evaluateMeasure("Measure/x") }
     assertFailsWith<NotImplementedError> { operator.evaluateLibrary("Library/x") }
+  }
+
+  private companion object {
+    const val PLAN_DEFINITION_CANONICAL = "http://example.org/PlanDefinition/epi"
   }
 }

@@ -27,12 +27,15 @@ import kotlinx.datetime.LocalDate
 /**
  * Parity facade for android-fhir's FhirOperator. generateCarePlan runs FHIRPath $apply;
  * evaluateMeasure/evaluateLibrary are CQL-only and remain unsupported (server-side).
+ *
+ * Pass a [resolver] to look knowledge artifacts up somewhere other than the [repository], such as a
+ * FHIR NPM package cache.
  */
 class FhirOperator(
   private val repository: WorkflowRepository,
   evaluator: ExpressionEvaluator = ExpressionEvaluatorRouter(),
+  private val resolver: CanonicalResolver = RepositoryCanonicalResolver(repository),
 ) {
-  private val resolver = CanonicalResolver(repository)
   private val processor = PlanDefinitionProcessor(evaluator, resolver)
 
   /**
@@ -72,7 +75,7 @@ class FhirOperator(
     today: LocalDate,
   ): CarePlan {
     val pd =
-      resolver.resolvePlanDefinition(planDefinitionCanonical)
+      resolver.resolve<PlanDefinition>(planDefinitionCanonical)
         ?: throw IllegalArgumentException("PlanDefinition not found: $planDefinitionCanonical")
     return generateCarePlan(pd, subject, variables, today)
   }
