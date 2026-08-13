@@ -310,7 +310,11 @@ private fun Expression.toProtocolExpression(): ProtocolExpression {
   return when (language.value) {
     Expression.ExpressionLanguage.Text_Fhirpath -> ProtocolExpression.FhirPath(text)
 
-    Expression.ExpressionLanguage.Text_Cql -> ProtocolExpression.Elm(text)
+    // Expression.reference (the Library canonical) rides along so a multi-library evaluator can
+    // pick the entry library. NB text/cql-identifier cannot be routed here yet: the model's
+    // ExpressionLanguage enum has no member for it (ohs-foundation/kotlin-fhir#123), so such a
+    // document fails deserialization before reaching this switch.
+    Expression.ExpressionLanguage.Text_Cql -> ProtocolExpression.Elm(text, reference?.value)
 
     else ->
       throw IllegalStateException("Unsupported expression language: ${language.value?.getCode()}")
