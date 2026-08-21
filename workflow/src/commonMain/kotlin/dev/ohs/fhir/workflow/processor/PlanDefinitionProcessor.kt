@@ -307,17 +307,27 @@ class PlanDefinitionProcessor(
 /** Routes a FHIR [Expression] to the workflow [ProtocolExpression] by its declared language. */
 private fun Expression.toProtocolExpression(): ProtocolExpression {
   val text = expression?.value ?: throw IllegalStateException("Expression has no expression text")
-  return when (language.value) {
-    Expression.ExpressionLanguage.Text_Fhirpath -> ProtocolExpression.FhirPath(text)
+  // Matched on the lexical code rather than the ExpressionLanguage enum, so this compiles
+  // unchanged across kotlin-fhir versions: today `language.value` is an enum constant that
+  // stringifies to its FHIR code; after ohs-foundation/kotlin-fhir#128 it is the open `Code`
+  // whose value IS that string (Expression.language is bound extensibly, so the spec permits
+  // codes beyond the enum).
+  return when (language.value?.toString()) {
+    "text/fhirpath" -> ProtocolExpression.FhirPath(text)
 
     // Expression.reference (the Library canonical) rides along so a multi-library evaluator can
-    // pick the entry library. NB text/cql-identifier cannot be routed here yet: the model's
-    // ExpressionLanguage enum has no member for it (ohs-foundation/kotlin-fhir#123), so such a
-    // document fails deserialization before reaching this switch.
-    Expression.ExpressionLanguage.Text_Cql -> ProtocolExpression.Elm(text, reference?.value)
+    // pick the entry library.
+    "text/cql" -> ProtocolExpression.Elm(text, reference?.value)
 
-    else ->
-      throw IllegalStateException("Unsupported expression language: ${language.value?.getCode()}")
+    // The WHO SMART Guidelines idiom: the expression text names a define in the referenced
+    // Library rather than carrying CQL source. Routed with the reference so the evaluator can
+    // resolve the name within the entry library — mirroring the legacy stack, where an
+    // expression that carries a library reference is evaluated as a named define. NB documents
+    // carrying this code only deserialize on kotlin-fhir >= rc03
+    // (ohs-foundation/kotlin-fhir#123).
+    "text/cql-identifier" -> ProtocolExpression.Elm(text, reference?.value)
+
+    else -> throw IllegalStateException("Unsupported expression language: ${language.value}")
   }
 }
 
