@@ -68,7 +68,11 @@ kotlin {
     commonMain.dependencies {
       implementation(project(":workflow"))
       implementation(libs.ohs.fhir.model)
-      implementation(libs.ohs.fhir.engine)
+      implementation("dev.ohs.fhir:fhir-engine:${libs.versions.ohs.fhir.engine.get()}") {
+        // fhir-engine 2.0.0-alpha02 still pulls the pre-split fhir-path:1.0.0-beta03,
+        // which duplicates every class in fhir-path-core/-r4 1.0.0-beta04.
+        exclude(group = "dev.ohs.fhir", module = "fhir-path")
+      }
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.kotlinx.datetime)
       implementation(libs.kotlinx.serialization.json)
