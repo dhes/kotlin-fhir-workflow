@@ -24,5 +24,8 @@ local.properties
 CLAUDE.md
 AGENT.md
 docs/superpowers/
-.superpowers/xcuserdata/
+.superpowers/
+
+# Xcode
+xcuserdata/
 *.xcuserstate
