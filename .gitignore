@@ -24,4 +24,5 @@ local.properties
 CLAUDE.md
 AGENT.md
 docs/superpowers/
-.superpowers/
+.superpowers/xcuserdata/
+*.xcuserstate
