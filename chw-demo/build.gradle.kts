@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.android.application)
+  alias(libs.plugins.compose.multiplatform)
+  alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -49,6 +51,13 @@ kotlin {
       implementation(libs.kotlinx.serialization.json)
       implementation("org.slf4j:slf4j-api:2.0.16")
       runtimeOnly("org.slf4j:slf4j-simple:2.0.16")
+      implementation(libs.kotlinx.coroutines.android)
+      implementation(libs.androidx.activity.compose)
+      implementation(compose.runtime)
+      implementation(compose.foundation)
+      implementation(compose.material3)
+      implementation(compose.materialIconsExtended)
+      implementation(compose.ui)
     }
   }
 }
