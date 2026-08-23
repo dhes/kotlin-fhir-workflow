@@ -35,16 +35,31 @@ android {
   }
 }
 
+// The CQL engine (compiled against antlr-kotlin 1.0.3) breaks on the 1.0.10 that
+// fhir-path pulls in (binary-incompatible Interval accessors). This demo compiles CQL but
+// never invokes the FHIRPath parser, so pin the engine's version. Revisit if a later phase
+// evaluates FHIRPath expressions through :workflow.
+configurations.configureEach {
+  resolutionStrategy.force("com.strumenta:antlr-kotlin-runtime:1.0.3")
+}
+
 kotlin {
   jvmToolchain(21)
 
-  androidTarget { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
+  androidTarget {
+    compilerOptions {
+      jvmTarget.set(JvmTarget.JVM_21)
+      optIn.add("kotlin.uuid.ExperimentalUuidApi")
+    }
+  }
 
   sourceSets {
     // Pinned to the PR #1815 branch build (KMP FHIR providers). Published to Sonatype
     // snapshots and mavenLocal; expect to advance this as engine v5 moves toward release.
     val cqlEngineVersion = "5.1.0-kmp-fhir-providers-84476e31-SNAPSHOT"
     androidMain.dependencies {
+      implementation(project(":workflow"))
+      implementation(libs.ohs.fhir.model)
       implementation("org.cqframework:engine:$cqlEngineVersion")
       implementation("org.cqframework:cql-to-elm:$cqlEngineVersion")
       implementation("org.cqframework:engine-fhir:$cqlEngineVersion")

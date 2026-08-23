@@ -62,7 +62,11 @@ private val SubtitleGray = Color(0xFF757575)
 sealed interface ImmunizationRowState {
   data object Compiling : ImmunizationRowState
 
-  data class Ready(val status: MeaslesEngine.MeaslesStatus) : ImmunizationRowState
+  data class Ready(
+    val status: MeaslesEngine.MeaslesStatus,
+    /** True once a dose was administered during this visit (the task is done for today). */
+    val administeredThisVisit: Boolean,
+  ) : ImmunizationRowState
 
   data class Failed(val message: String) : ImmunizationRowState
 }
@@ -72,18 +76,23 @@ fun HomeVisitScreen(
   selectedPatient: DemoPatient,
   onSelectPatient: (DemoPatient) -> Unit,
   immunizationState: ImmunizationRowState,
+  administerProgress: List<ImmunizationTaskFlow.Step>?,
+  onAdminister: (String) -> Unit,
 ) {
   Column(Modifier.fillMaxSize().background(Color.White)) {
     HeaderBar()
     PatientChips(selectedPatient, onSelectPatient)
     HorizontalDivider(color = Color(0xFFEEEEEE))
     Column(Modifier.verticalScroll(rememberScrollState())) {
-      ImmunizationTaskRow(immunizationState)
+      ImmunizationTaskRow(immunizationState, onAdminister)
       StaticTaskRow("Growth and nutrition")
       StaticTaskRow("Diarrhea / sick visit check")
       StaticTaskRow("Malaria prevention")
       StaticTaskRow("Development")
     }
+  }
+  if (administerProgress != null) {
+    FlowProgressDialog(administerProgress)
   }
 }
 
@@ -124,8 +133,8 @@ private fun PatientChips(selected: DemoPatient, onSelect: (DemoPatient) -> Unit)
 }
 
 @Composable
-private fun ImmunizationTaskRow(state: ImmunizationRowState) {
-  var showGuidance by remember { mutableStateOf(false) }
+private fun ImmunizationTaskRow(state: ImmunizationRowState, onAdminister: (String) -> Unit) {
+  var showDialog by remember { mutableStateOf(false) }
   val subtitle: String
   val done: Boolean
   when (state) {
@@ -146,7 +155,7 @@ private fun ImmunizationTaskRow(state: ImmunizationRowState) {
           s.dueMcv2 -> "Client is due for MCV2"
           else -> "No measles dose due today"
         }
-      done = s.seriesComplete
+      done = s.seriesComplete || state.administeredThisVisit
     }
   }
 
@@ -156,12 +165,26 @@ private fun ImmunizationTaskRow(state: ImmunizationRowState) {
     subtitleColor = if (done) CheckGreen else SubtitleGray,
     done = done,
     loading = state is ImmunizationRowState.Compiling,
-    onClick = { if (state is ImmunizationRowState.Ready) showGuidance = true },
+    onClick = { if (state is ImmunizationRowState.Ready) showDialog = true },
   )
 
-  val guidance = (state as? ImmunizationRowState.Ready)?.status?.guidance
-  if (showGuidance && guidance != null) {
-    GuidanceDialog(guidance) { showGuidance = false }
+  val ready = state as? ImmunizationRowState.Ready
+  if (showDialog && ready != null) {
+    val dueDose =
+      when {
+        ready.status.dueMcv1 -> "MCV1"
+        ready.status.dueMcv2 -> "MCV2"
+        else -> null
+      }
+    GuidanceDialog(
+      guidance = ready.status.guidance ?: "No guidance returned.",
+      administerDose = dueDose,
+      onAdminister = { dose ->
+        showDialog = false
+        onAdminister(dose)
+      },
+      onDismiss = { showDialog = false },
+    )
   }
 }
 
@@ -206,11 +229,57 @@ private fun TaskRow(
 }
 
 @Composable
-private fun GuidanceDialog(guidance: String, onDismiss: () -> Unit) {
+private fun GuidanceDialog(
+  guidance: String,
+  administerDose: String?,
+  onAdminister: (String) -> Unit,
+  onDismiss: () -> Unit,
+) {
   androidx.compose.material3.AlertDialog(
     onDismissRequest = onDismiss,
-    confirmButton = { TextButton(onClick = onDismiss) { Text("CLOSE") } },
+    confirmButton = {
+      if (administerDose != null) {
+        TextButton(onClick = { onAdminister(administerDose) }) { Text("ADMINISTER $administerDose") }
+      } else {
+        TextButton(onClick = onDismiss) { Text("CLOSE") }
+      }
+    },
+    dismissButton =
+      if (administerDose != null) {
+        { TextButton(onClick = onDismiss) { Text("CANCEL") } }
+      } else {
+        null
+      },
     title = { Text("WHO guidance", fontWeight = FontWeight.Medium) },
     text = { Text(guidance, style = MaterialTheme.typography.bodyMedium) },
+  )
+}
+
+/** The CPG activity phases lighting up as ActivityFlow advances the request. */
+@Composable
+private fun FlowProgressDialog(completed: List<ImmunizationTaskFlow.Step>) {
+  androidx.compose.material3.AlertDialog(
+    onDismissRequest = {},
+    confirmButton = {},
+    title = { Text("Recording via ActivityFlow", fontWeight = FontWeight.Medium) },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ImmunizationTaskFlow.Step.entries.forEach { step ->
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            if (step in completed) {
+              Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = null,
+                tint = CheckGreen,
+                modifier = Modifier.size(22.dp),
+              )
+            } else {
+              Box(Modifier.size(22.dp).border(2.dp, CircleGray, CircleShape))
+            }
+            Text(step.label, Modifier.padding(start = 12.dp), fontSize = 14.sp)
+          }
+        }
+      }
+    },
   )
 }

@@ -32,29 +32,42 @@ val DEMO_PATIENTS =
     DemoPatient("zuri", "Zuri", "girl · 24 months · MCV1 + MCV2"),
   )
 
+/** Primary-series doses already on each baseline chart (for numbering new doses). */
+val BASE_DOSE_COUNTS = mapOf("amara" to 0, "kofi" to 1, "zuri" to 2)
+
 private const val MEASLES_CODING =
   """{"coding":[{"system":"http://id.who.int/icd/release/11/mms","code":"XM28X5"}]}"""
 
-val PATIENT_BUNDLE =
-  """
-  {"resourceType":"Bundle","type":"collection","entry":[
-    {"resource":{"resourceType":"Patient","id":"amara","gender":"female","birthDate":"2025-10-15"}},
-
-    {"resource":{"resourceType":"Patient","id":"kofi","gender":"male","birthDate":"2025-04-10"}},
-    {"resource":{"resourceType":"Immunization","id":"kofi-mcv1","status":"completed",
+private val BASE_ENTRIES =
+  listOf(
+    """{"resource":{"resourceType":"Patient","id":"amara","gender":"female","birthDate":"2025-10-15"}}""",
+    """{"resource":{"resourceType":"Patient","id":"kofi","gender":"male","birthDate":"2025-04-10"}}""",
+    """{"resource":{"resourceType":"Immunization","id":"kofi-mcv1","status":"completed",
       "vaccineCode":$MEASLES_CODING,
       "patient":{"reference":"Patient/kofi"},"occurrenceDateTime":"2026-01-15",
-      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":1}]}},
-
-    {"resource":{"resourceType":"Patient","id":"zuri","gender":"female","birthDate":"2024-08-01"}},
-    {"resource":{"resourceType":"Immunization","id":"zuri-mcv1","status":"completed",
+      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":1}]}}""",
+    """{"resource":{"resourceType":"Patient","id":"zuri","gender":"female","birthDate":"2024-08-01"}}""",
+    """{"resource":{"resourceType":"Immunization","id":"zuri-mcv1","status":"completed",
       "vaccineCode":$MEASLES_CODING,
       "patient":{"reference":"Patient/zuri"},"occurrenceDateTime":"2025-05-05",
-      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":1}]}},
-    {"resource":{"resourceType":"Immunization","id":"zuri-mcv2","status":"completed",
+      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":1}]}}""",
+    """{"resource":{"resourceType":"Immunization","id":"zuri-mcv2","status":"completed",
       "vaccineCode":$MEASLES_CODING,
       "patient":{"reference":"Patient/zuri"},"occurrenceDateTime":"2025-11-20",
-      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":2}]}}
-  ]}
-  """
-    .trimIndent()
+      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":2}]}}""",
+  )
+
+/** A primary-series dose administered during this visit, dated MeaslesEngine.TODAY. */
+fun administeredDoseEntry(patientId: String, doseNumber: Int): String =
+  """{"resource":{"resourceType":"Immunization","id":"$patientId-visit-dose-$doseNumber","status":"completed",
+      "vaccineCode":$MEASLES_CODING,
+      "patient":{"reference":"Patient/$patientId"},"occurrenceDateTime":"${MeaslesEngine.TODAY}",
+      "protocolApplied":[{"series":"Primary series","doseNumberPositiveInt":$doseNumber}]}}"""
+
+/** The full chart bundle: baseline entries plus any doses administered during the visit. */
+fun patientBundleJson(extraEntries: List<String>): String =
+  (BASE_ENTRIES + extraEntries).joinToString(
+    prefix = """{"resourceType":"Bundle","type":"collection","entry":[""",
+    separator = ",\n",
+    postfix = "]}",
+  )

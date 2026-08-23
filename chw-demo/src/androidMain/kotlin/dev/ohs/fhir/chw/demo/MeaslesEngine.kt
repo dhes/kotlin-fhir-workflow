@@ -47,9 +47,14 @@ import org.opencds.cqf.cql.engine.runtime.Date as EngineDate
  * expressions per patient. Same plumbing as the Phase 0 spike / cql-v5-probe's ImmzProbe.
  */
 class MeaslesEngine private constructor(
-  private val engine: CqlEngine,
+  private val libraryManager: LibraryManager,
+  private val fhirModel: org.cqframework.cql.cql2elm.model.Model,
+  private val terminology: SimpleFhirTerminologyProvider,
   private val rootVersion: String?,
 ) {
+
+  private fun parseBundle(json: String, model: org.cqframework.cql.cql2elm.model.Model) =
+    fhirResourceJsonToCqlValue(Buffer().apply { writeString(json) }, model)
 
   data class MeaslesStatus(
     val dueMcv1: Boolean,
@@ -59,10 +64,28 @@ class MeaslesEngine private constructor(
     val evalMillis: Long,
   )
 
-  /** Evaluations are cheap (~70 ms) but the engine is not thread-safe; serialize access. */
+  /**
+   * Evaluates against the given chart bundle. The compiled library is reused (compilation is
+   * the ~6 s cost); the data provider and engine are rebuilt per call so the chart can change
+   * between evaluations. Cheap (~70-170 ms), but not thread-safe; serialize access.
+   */
   @Synchronized
-  fun evaluate(patientId: String): MeaslesStatus {
+  fun evaluate(patientId: String, bundleJson: String): MeaslesStatus {
     val t0 = System.currentTimeMillis()
+    val dataProvider =
+      CompositeDataProvider(
+        SimpleFhirModelResolver(fhirModel),
+        SimpleFhirRetrieveProvider(parseBundle(bundleJson, fhirModel), terminology),
+      )
+    val engine =
+      CqlEngine(
+        Environment(
+          libraryManager,
+          mutableMapOf<String?, DataProvider?>(fhirModelNamespaceUri to dataProvider),
+          terminology,
+        ),
+        mutableSetOf(CqlEngine.Options.EnableTypeChecking),
+      )
     val result =
       engine
         .evaluate {
@@ -97,8 +120,8 @@ class MeaslesEngine private constructor(
     // Fixed evaluation date so the demo is clock-stable; sample charts are aged against it.
     const val TODAY = "2026-08-18"
 
-    /** Compiles the WHO CQL and builds the engine. Slow (~6 s on-device); call off-main. */
-    fun create(assets: AssetManager, patientBundleJson: String): MeaslesEngine {
+    /** Compiles the WHO CQL and loads terminology. Slow (~6 s on-device); call off-main. */
+    fun create(assets: AssetManager): MeaslesEngine {
       val sources =
         assets.list("cql")!!.associate { name ->
           name.removeSuffix(".cql") to assets.open("cql/$name").bufferedReader().readText()
@@ -153,26 +176,12 @@ class MeaslesEngine private constructor(
         SimpleFhirTerminologyProvider(
           parseBundle(assets.open("valuesets-bundle.json").bufferedReader().readText())
         )
-      val dataProvider =
-        CompositeDataProvider(
-          SimpleFhirModelResolver(fhirModel),
-          SimpleFhirRetrieveProvider(parseBundle(patientBundleJson), terminology),
-        )
-      val engine =
-        CqlEngine(
-          Environment(
-            libraryManager,
-            mutableMapOf<String?, DataProvider?>(fhirModelNamespaceUri to dataProvider),
-            terminology,
-          ),
-          mutableSetOf(CqlEngine.Options.EnableTypeChecking),
-        )
       val rootVersion =
         Regex("^\\s*library\\s+\"?[\\w.]+\"?\\s+version\\s+'([^']+)'", RegexOption.MULTILINE)
           .find(sources.getValue(ROOT))
           ?.groupValues
           ?.get(1)
-      return MeaslesEngine(engine, rootVersion)
+      return MeaslesEngine(libraryManager, fhirModel, terminology, rootVersion)
     }
   }
 }
