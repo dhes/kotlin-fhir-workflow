@@ -32,3 +32,19 @@ spotless {
     ktfmt().googleStyle()
   }
 }
+
+// Every module must resolve the SAME fhir-model as the catalog's local open-code-123 build —
+// Gradle's qualifier ordering between "-open123-SNAPSHOT" and the "-rc0x" that fhir-path pulls
+// transitively is otherwise ambiguous. Drop together with the catalog pin when rc03 ships.
+allprojects {
+  configurations.configureEach {
+    resolutionStrategy {
+      force(
+        "dev.ohs.fhir:fhir-model:${libs.versions.ohs.fhir.model.get()}",
+        "dev.ohs.fhir:fhir-model-r4:${libs.versions.ohs.fhir.model.get()}",
+        "dev.ohs.fhir:fhir-model-r4b:${libs.versions.ohs.fhir.model.get()}",
+        "dev.ohs.fhir:fhir-model-r5:${libs.versions.ohs.fhir.model.get()}",
+      )
+    }
+  }
+}

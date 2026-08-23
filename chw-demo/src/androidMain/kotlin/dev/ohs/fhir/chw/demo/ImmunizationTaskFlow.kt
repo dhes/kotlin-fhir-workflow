@@ -15,15 +15,9 @@
  */
 package dev.ohs.fhir.chw.demo
 
-import dev.ohs.fhir.model.r4.Code
-import dev.ohs.fhir.model.r4.CodeableConcept
-import dev.ohs.fhir.model.r4.Coding
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.MedicationRequest
-import dev.ohs.fhir.model.r4.Reference
 import dev.ohs.fhir.model.r4.Resource
-import dev.ohs.fhir.model.r4.String as FhirString
-import dev.ohs.fhir.model.r4.Uri
 import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.activity.ActivityFlow
 import dev.ohs.fhir.workflow.activity.phase.Phase
@@ -55,29 +49,18 @@ class ImmunizationTaskFlow {
 
   private val repository = InMemoryRepository()
 
-  /** Walks all phases for one dose; [onStep] fires after each transition lands. */
-  suspend fun administer(patientId: String, doseLabel: String, onStep: suspend (Step) -> Unit) {
+  /**
+   * Walks one WHO-generated proposal through all phases; [onStep] fires after each transition
+   * lands. [generated] is the MedicationRequest that $apply produced from WHO's
+   * ActivityDefinition (IMMZD2DTMR: kind MedicationRequest, intent proposal); it gets a fresh
+   * id since $apply derives a stable one from the plan and action.
+   */
+  suspend fun administer(generated: MedicationRequest, onStep: suspend (Step) -> Unit) {
     val proposal =
       CPGMedicationRequest(
-        MedicationRequest(
+        generated.copy(
           id = Uuid.random().toString(),
           status = Enumeration(value = MedicationRequest.MedicationrequestStatus.Active),
-          intent = Enumeration(value = MedicationRequest.MedicationRequestIntent.Proposal),
-          medication =
-            MedicationRequest.Medication.CodeableConcept(
-              CodeableConcept(
-                coding =
-                  listOf(
-                    Coding(
-                      system = Uri(value = "http://id.who.int/icd/release/11/mms"),
-                      code = Code(value = "XM28X5"),
-                      display = FhirString(value = "Measles-containing vaccine"),
-                    )
-                  ),
-                text = FhirString(value = doseLabel),
-              )
-            ),
-          subject = Reference(reference = FhirString(value = "Patient/$patientId")),
         )
       )
     repository.create(proposal.resource)

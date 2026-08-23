@@ -1,7 +1,9 @@
 [versions]
 kotlin = "2.3.21"
 android-gradle-plugin = "8.13.0"
-ohs-fhir-model = "1.0.0-rc01"
+# Local open-code-123 build (kotlin-fhir PR #128): open Expression.language so WHO
+# text/cql-identifier documents deserialize (#123). Restore a published rc when rc03 ships.
+ohs-fhir-model = "1.0.0-open123-SNAPSHOT"
 ohs-fhir-path = "1.0.0-beta04"
 ohs-fhir-engine = "2.0.0-alpha02"
 kotlinx-coroutines = "1.10.2"

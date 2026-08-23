@@ -44,11 +44,15 @@ class MainActivity : ComponentActivity() {
     setContent {
       MaterialTheme {
         var engine by remember { mutableStateOf<MeaslesEngine?>(null) }
+        var applier by remember { mutableStateOf<WhoPlanApplier?>(null) }
         var engineError by remember { mutableStateOf<String?>(null) }
         var selected by remember { mutableStateOf(DEMO_PATIENTS.first()) }
         // Doses administered during this visit, as chart bundle entries per patient.
         var visitDoses by remember { mutableStateOf(mapOf<String, List<String>>()) }
         var statuses by remember { mutableStateOf(mapOf<String, MeaslesEngine.MeaslesStatus>()) }
+        // The proposal WHO's PlanDefinition generated for each evaluated patient (null = none).
+        var proposals by
+          remember { mutableStateOf(mapOf<String, dev.ohs.fhir.model.r4.MedicationRequest?>()) }
         var administerProgress by
           remember { mutableStateOf<List<ImmunizationTaskFlow.Step>?>(null) }
         val taskFlow = remember { ImmunizationTaskFlow() }
@@ -58,35 +62,50 @@ class MainActivity : ComponentActivity() {
 
         LaunchedEffect(Unit) {
           try {
-            engine = withContext(Dispatchers.Default) { MeaslesEngine.create(assets) }
+            val built = withContext(Dispatchers.Default) { MeaslesEngine.create(assets) }
+            applier = WhoPlanApplier(assets, built)
+            engine = built
           } catch (t: Throwable) {
             Log.e(TAG, "engine init failed", t)
             engineError = "WHO CQL failed to load: ${t.message?.take(120)}"
           }
         }
 
-        // Evaluate the selected patient once the engine is up; cache until the chart changes.
-        LaunchedEffect(engine, selected) {
-          val e = engine ?: return@LaunchedEffect
-          if (selected.id in statuses) return@LaunchedEffect
+        suspend fun refresh(patientId: String) {
+          val e = engine ?: return
+          val a = applier ?: return
           val bundle = bundleJson()
-          val status = withContext(Dispatchers.Default) { e.evaluate(selected.id, bundle) }
+          val status = withContext(Dispatchers.Default) { e.evaluate(patientId, bundle) }
+          val proposal = withContext(Dispatchers.Default) { a.generateProposal(patientId, bundle) }
           Log.i(
             TAG,
-            "[${selected.id}] due MCV1=${status.dueMcv1} due MCV2=${status.dueMcv2} " +
-              "complete=${status.seriesComplete} (${status.evalMillis} ms)",
+            "[$patientId] due MCV1=${status.dueMcv1} due MCV2=${status.dueMcv2} " +
+              "complete=${status.seriesComplete} (${status.evalMillis} ms) | " +
+              "\$apply proposal=${proposal?.medication?.let { "MedicationRequest" } ?: "none"}",
           )
-          statuses = statuses + (selected.id to status)
+          statuses = statuses + (patientId to status)
+          proposals = proposals + (patientId to proposal)
+        }
+
+        // Evaluate the selected patient once the engine is up; cache until the chart changes.
+        LaunchedEffect(engine, selected) {
+          if (engine == null || selected.id in statuses) return@LaunchedEffect
+          try {
+            refresh(selected.id)
+          } catch (t: Throwable) {
+            Log.e(TAG, "evaluation failed", t)
+            engineError = "Evaluation failed: ${t.message?.take(120)}"
+          }
         }
 
         fun administer(dose: String) {
-          val e = engine ?: return
           val patient = selected
+          val proposal = proposals[patient.id] ?: return
           scope.launch {
             administerProgress = emptyList()
             try {
               withContext(Dispatchers.Default) {
-                taskFlow.administer(patient.id, dose) { step ->
+                taskFlow.administer(proposal) { step ->
                   Log.i(TAG, "[${patient.id}] $dose flow: ${step.name}")
                   administerProgress = (administerProgress ?: emptyList()) + step
                   delay(400)
@@ -99,14 +118,7 @@ class MainActivity : ComponentActivity() {
                   (patient.id to
                     (visitDoses[patient.id].orEmpty() +
                       administeredDoseEntry(patient.id, doseNumber)))
-              val bundle = bundleJson()
-              val status = withContext(Dispatchers.Default) { e.evaluate(patient.id, bundle) }
-              Log.i(
-                TAG,
-                "[${patient.id}] after $dose: due MCV1=${status.dueMcv1} " +
-                  "due MCV2=${status.dueMcv2} complete=${status.seriesComplete}",
-              )
-              statuses = statuses + (patient.id to status)
+              refresh(patient.id)
             } catch (t: Throwable) {
               Log.e(TAG, "administer failed", t)
               engineError = "Activity flow failed: ${t.message?.take(120)}"

@@ -64,6 +64,40 @@ class MeaslesEngine private constructor(
     val evalMillis: Long,
   )
 
+  private fun engineFor(bundleJson: String): CqlEngine {
+    val dataProvider =
+      CompositeDataProvider(
+        SimpleFhirModelResolver(fhirModel),
+        SimpleFhirRetrieveProvider(parseBundle(bundleJson, fhirModel), terminology),
+      )
+    return CqlEngine(
+      Environment(
+        libraryManager,
+        mutableMapOf<String?, DataProvider?>(fhirModelNamespaceUri to dataProvider),
+        terminology,
+      ),
+      mutableSetOf(CqlEngine.Options.EnableTypeChecking),
+    )
+  }
+
+  /**
+   * Evaluates one named define from the compiled WHO library against the given chart bundle
+   * and returns its raw engine value (null when the define evaluates to CQL null). Backs the
+   * workflow $apply seam's ExpressionEvaluator.
+   */
+  @Synchronized
+  fun evaluateRaw(patientId: String, bundleJson: String, expressionName: String): Any? =
+    engineFor(bundleJson)
+      .evaluate {
+        library(VersionedIdentifier().withId(ROOT).withVersion(rootVersion)) {
+          expressions(expressionName)
+        }
+        contextParameter = "Patient" to patientId
+        parameters = mapOf("Today" to EngineDate(TODAY))
+      }
+      .onlyResultOrThrow[expressionName]
+      ?.value
+
   /**
    * Evaluates against the given chart bundle. The compiled library is reused (compilation is
    * the ~6 s cost); the data provider and engine are rebuilt per call so the chart can change
@@ -72,22 +106,8 @@ class MeaslesEngine private constructor(
   @Synchronized
   fun evaluate(patientId: String, bundleJson: String): MeaslesStatus {
     val t0 = System.currentTimeMillis()
-    val dataProvider =
-      CompositeDataProvider(
-        SimpleFhirModelResolver(fhirModel),
-        SimpleFhirRetrieveProvider(parseBundle(bundleJson, fhirModel), terminology),
-      )
-    val engine =
-      CqlEngine(
-        Environment(
-          libraryManager,
-          mutableMapOf<String?, DataProvider?>(fhirModelNamespaceUri to dataProvider),
-          terminology,
-        ),
-        mutableSetOf(CqlEngine.Options.EnableTypeChecking),
-      )
     val result =
-      engine
+      engineFor(bundleJson)
         .evaluate {
           library(VersionedIdentifier().withId(ROOT).withVersion(rootVersion)) {
             expressions(DUE_MCV1, DUE_MCV2, SERIES_COMPLETE, GUIDANCE)
