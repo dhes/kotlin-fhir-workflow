@@ -1,5 +1,9 @@
 # CHW Home Visit demo
 
+<img src="docs/chw-demo.gif" align="right" width="240" alt="Demo walkthrough: WHO measles logic driving the Home Visit Tasks screen"/>
+
+*(Preview at 1.6× speed — [full video](docs/chw-demo.mp4).)*
+
 An Android demo in the style of a community health worker app's *Home Visit Tasks* screen,
 whose Immunizations task is driven end-to-end by **WHO's published SMART Guidelines
 immunization content — verbatim**, executing entirely on-device:
