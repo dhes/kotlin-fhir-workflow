@@ -4,6 +4,7 @@ android-gradle-plugin = "8.13.0"
 ohs-fhir-model = "1.0.0-rc03"
 ohs-fhir-path = "1.0.0-beta06"
 ohs-fhir-engine = "2.0.0-alpha03"
+cqframework = "5.5.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.6.2"
 kotlinx-serialization = "1.8.0"
@@ -24,6 +25,10 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+cqframework-cql-to-elm = { module = "org.cqframework:cql-to-elm", version.ref = "cqframework" }
+cqframework-engine = { module = "org.cqframework:engine", version.ref = "cqframework" }
+cqframework-quick = { module = "org.cqframework:quick", version.ref = "cqframework" }
+cqframework-ucum = { module = "org.cqframework:ucum", version.ref = "cqframework" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.9.3" }

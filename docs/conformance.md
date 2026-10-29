@@ -135,3 +135,20 @@ WHO_IMMUNIZATIONS_PACKAGE=<unpacked package>/package \
 
 The root cause column says whether a test case fails because of this library (Implementation) or
 because of the test case itself (Test).
+
+### With CQL
+
+WHO's PlanDefinitions express their logic in CQL. The tests evaluate it with cqframework's CQL
+engine (`org.cqframework` 5.5.0, desktop tests only), plugged into `ExpressionEvaluatorRouter` in
+place of `ElmExpressionEvaluator`, over the package's libraries and value sets. A second test,
+`planDefinitionApplyWithCqlLanguage`, gives WHO's `text/cql-identifier` and `text/cql-expression`
+expressions as `text/cql` before applying them, to show what follows once those languages are
+routed:
+
+| Test cases                                   | Count | Root cause      | Tracking issue / PR                                                       | Note                                                                                                                  |
+|:---------------------------------------------|------:|:----------------|:--------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------|
+| Pass                                         |    70 |                 |                                                                           |                                                                                                                       |
+| dynamicValue path `category.coding`          |   721 | Implementation  | [#9](https://github.com/ohs-foundation/kotlin-fhir-workflow/issues/9)     | The value is written as an object where `category` is a list, and the request does not decode.                        |
+| dynamicValue path `medication`               |   226 | Implementation  | [#9](https://github.com/ohs-foundation/kotlin-fhir-workflow/issues/9)     | `medication` is written as is, where the request expects the choice element `medicationCodeableConcept`.              |
+| `IMMZD18SPneumococcal2DosesWithBoosterDose/` `Pneumococcal14.4`, `21.4`, `22.4` | 3 | Not established |       | One contained resource where WHO expects two.                                                                         |
+| `IMMZD5DTTyphoidContraindications/Typhoid41.1` |     1 | Test            |                                                                           | As above.                                                                                                             |

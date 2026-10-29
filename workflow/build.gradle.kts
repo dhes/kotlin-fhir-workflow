@@ -52,6 +52,15 @@ kotlin {
         implementation(libs.kotlinx.coroutines.test)
       }
     }
+    // cqframework's CQL compiler and engine, for WHO's immunization test cases; not on iOS.
+    named("desktopTest") {
+      dependencies {
+        implementation(libs.cqframework.cql.to.elm)
+        implementation(libs.cqframework.engine)
+        implementation(libs.cqframework.quick)
+        implementation(libs.cqframework.ucum)
+      }
+    }
   }
 }
 
