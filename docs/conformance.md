@@ -110,7 +110,28 @@ Routing by `Expression.language` is in `PlanDefinitionProcessor.kt`; evaluation 
 
 ## Test conformance
 
-<!-- TODO: WHO's immunization test scenarios (WorldHealthOrganization/smart-immunizations, CC0-1.0) under
-third_party/, run in the tests, with a table of every scenario that does not pass: scenario, root cause
-(Implementation, Test, Specification/Test), tracking issue / PR, note. Same shape as kotlin-fhirpath's
-docs/conformance.md. -->
+WHO's [SMART Guidelines for immunizations](https://github.com/WorldHealthOrganization/smart-immunizations)
+include test cases for their PlanDefinitions: Karate feature files under
+`input/testing/features/plandefinition`, each scenario a patient's test bundle, a `Today` date and
+what `PlanDefinition/$apply` should return (the number of contained resources and, for decision
+tables, the guidance text). At commit 12ec2fc54 there are 1,021 test cases over 138 PlanDefinitions,
+which come from the package `smart.who.int.immunizations` 0.2.0.
+
+[`WhoImmunizationsConformanceTest`](../workflow/src/desktopTest/kotlin/dev/ohs/fhir/workflow/conformance/WhoImmunizationsConformanceTest.kt)
+runs them on the JVM (desktop). WHO's files are not in this repository; the test reads them from
+the paths in `WHO_IMMUNIZATIONS_FEATURES` and `WHO_IMMUNIZATIONS_PACKAGE`, and does nothing when
+those are not set:
+
+```shell
+WHO_IMMUNIZATIONS_FEATURES=<smart-immunizations>/input/testing/features/plandefinition \
+WHO_IMMUNIZATIONS_PACKAGE=<unpacked package>/package \
+  ./gradlew :workflow:desktopTest --tests '*WhoImmunizationsConformanceTest*' --rerun
+```
+
+| Test cases                                   | Count | Root cause     | Tracking issue / PR | Note                                                                                                                                  |
+|:---------------------------------------------|------:|:---------------|:--------------------|:--------------------------------------------------------------------------------------------------------------------------------------|
+| All others                                   | 1,020 | Implementation |                     | Every PlanDefinition's applicability conditions are `text/cql-identifier`, which is rejected (see [Expression languages](#expression-languages)). |
+| `IMMZD5DTTyphoidContraindications/Typhoid41.1` |     1 | Test           |                     | `tests-Typhoid41.1-bundle.json` has a MedicationRequest without `medication[x]`, which R4 requires, so kotlin-fhir does not decode it. |
+
+The root cause column says whether a test case fails because of this library (Implementation) or
+because of the test case itself (Test).
