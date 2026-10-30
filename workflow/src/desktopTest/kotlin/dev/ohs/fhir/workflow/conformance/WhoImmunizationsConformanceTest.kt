@@ -276,11 +276,8 @@ class WhoImmunizationsConformanceTest {
     /** As [expectedOutcomes], for [planDefinitionApplyWithCqlLanguage]. */
     val expectedOutcomesWithCqlLanguage: Map<String, Int> =
       sortedMapOf(
-        PASS to 70,
-        "JsonDecodingException: Expected JsonArray, but had JsonObject as the serialized body of " +
-          "kotlin.collections.ArrayList at path: \$.category" to 721,
-        "JsonDecodingException: Encountered an unknown key 'medication' at path: \$" to 226,
-        "Contained resource count differs from WHO's" to 3,
+        PASS to 1004,
+        "Contained resource count differs from WHO's" to 16,
         "Test bundle not decoded: SerializationException" to 1,
       )
   }
