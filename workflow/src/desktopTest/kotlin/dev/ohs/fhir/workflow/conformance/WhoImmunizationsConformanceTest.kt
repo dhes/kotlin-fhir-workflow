@@ -262,8 +262,7 @@ class WhoImmunizationsConformanceTest {
       }
 
     /**
-     * The number of test cases with each outcome, at smart-immunizations 12ec2fc54 and package
-     * 0.2.0.
+     * The number of test cases with each outcome, at smart-immunizations v1.0.0 and package 1.0.0.
      *
      * N.B. This should be kept in sync with the test conformance table in `docs/conformance.md`.
      */

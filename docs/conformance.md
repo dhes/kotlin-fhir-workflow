@@ -114,8 +114,11 @@ WHO's [SMART Guidelines for immunizations](https://github.com/WorldHealthOrganiz
 include test cases for their PlanDefinitions: Karate feature files under
 `input/testing/features/plandefinition`, each scenario a patient's test bundle, a `Today` date and
 what `PlanDefinition/$apply` should return (the number of contained resources and, for decision
-tables, the guidance text). At commit 12ec2fc54 there are 1,021 test cases over 138 PlanDefinitions,
-which come from the package `smart.who.int.immunizations` 0.2.0.
+tables, the guidance text). The results below are for release
+[v1.0.0](https://github.com/WorldHealthOrganization/smart-immunizations/releases/tag/v1.0.0) (commit
+8dd61d6934a176793824528391bc2328ebc771f2), which has 1,021 test cases over 138 PlanDefinitions, and
+the package `smart.who.int.immunizations` 1.0.0 from packages.fhir.org, which holds those
+PlanDefinitions.
 
 [`WhoImmunizationsConformanceTest`](../workflow/src/desktopTest/kotlin/dev/ohs/fhir/workflow/conformance/WhoImmunizationsConformanceTest.kt)
 runs them on the JVM (desktop). WHO's files are not in this repository; the test reads them from
@@ -123,8 +126,12 @@ the paths in `WHO_IMMUNIZATIONS_FEATURES` and `WHO_IMMUNIZATIONS_PACKAGE`, and d
 those are not set:
 
 ```shell
-WHO_IMMUNIZATIONS_FEATURES=<smart-immunizations>/input/testing/features/plandefinition \
-WHO_IMMUNIZATIONS_PACKAGE=<unpacked package>/package \
+WHO=<an empty directory, as an absolute path>
+git clone --depth 1 --branch v1.0.0 https://github.com/WorldHealthOrganization/smart-immunizations.git "$WHO/smart-immunizations"
+mkdir -p "$WHO/package" && curl -sL https://packages.fhir.org/smart.who.int.immunizations/1.0.0 | tar -xz -C "$WHO/package"
+
+WHO_IMMUNIZATIONS_FEATURES="$WHO/smart-immunizations/input/testing/features/plandefinition" \
+WHO_IMMUNIZATIONS_PACKAGE="$WHO/package/package" \
   ./gradlew :workflow:desktopTest --tests '*WhoImmunizationsConformanceTest*' --rerun
 ```
 
