@@ -82,14 +82,27 @@ class WhoImmunizationsConformanceTest {
     }
 
   private fun suite(): Suite? {
-    val featuresDir = System.getenv("WHO_IMMUNIZATIONS_FEATURES")?.let(::File)
-    val packageDir = System.getenv("WHO_IMMUNIZATIONS_PACKAGE")?.let(::File)
+    val featuresDir = setting("WHO_IMMUNIZATIONS_FEATURES")?.let(::File)
+    val packageDir = setting("WHO_IMMUNIZATIONS_PACKAGE")?.let(::File)
     if (featuresDir == null || packageDir == null) {
       println("WHO_IMMUNIZATIONS_FEATURES or WHO_IMMUNIZATIONS_PACKAGE not set; nothing run")
       return null
     }
     return Suite(featuresDir, packageDir)
   }
+
+  /** An environment variable, or on Android an instrumentation argument of the same name. */
+  private fun setting(name: String): String? =
+    System.getenv(name)
+      ?: runCatching {
+          val arguments =
+            Class.forName("androidx.test.platform.app.InstrumentationRegistry")
+              .getMethod("getArguments")
+              .invoke(null)
+          arguments.javaClass.getMethod("getString", String::class.java).invoke(arguments, name)
+            as String?
+        }
+        .getOrNull()
 
   private class Suite(featuresDir: File, private val packageDir: File) {
     val testCases = WhoImmunizationsTestCases.read(featuresDir)

@@ -53,7 +53,7 @@ object WhoImmunizationsTestCases {
     if (text.trimStart().startsWith("@ignore")) return emptyList()
     val background = text.substringBefore("Scenario:")
     val today =
-      Regex("""parameter\[0]\.valueDate = "(\d{4}-\d{2}-\d{2})"""")
+      Regex("""parameter\[0\]\.valueDate = "(\d{4}-\d{2}-\d{2})"""")
         .find(background)
         ?.groupValues
         ?.get(1) ?: defaultToday(feature, background) ?: error("No Today date for ${feature.name}")
@@ -62,7 +62,7 @@ object WhoImmunizationsTestCases {
       if ("Scenario" !in block || "@ignore" in tags) return@mapNotNull null
       val patient = Regex("""@patient=(\S+)""").find(tags)?.groupValues?.get(1)
       val bundle =
-        Regex("""IMMZ\.feature@create'\) \{ "file": "\./data/([^"]+)" }""")
+        Regex("""IMMZ\.feature@create'\) \{ "file": "\./data/([^"]+)" \}""")
           .find(block)
           ?.groupValues
           ?.get(1)
@@ -84,7 +84,7 @@ object WhoImmunizationsTestCases {
             ?.get(1)
             ?.let(::unescape),
         expectedContained =
-          Regex("""match response\.contained == '#\[(\d+)]'""")
+          Regex("""match response\.contained == '#\[(\d+)\]'""")
             .find(block)
             ?.groupValues
             ?.get(1)
