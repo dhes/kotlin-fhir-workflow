@@ -15,6 +15,7 @@
  */
 package dev.ohs.fhir.workflow.cql
 
+import dev.ohs.fhir.workflow.cql.generated.R4_PATIENT_CONTEXT_PATHS
 import org.cqframework.cql.cql2elm.model.Model
 import org.cqframework.cql.shared.QName
 import org.opencds.cqf.cql.engine.elm.executing.EquivalentEvaluator
@@ -38,7 +39,7 @@ class KotlinFhirModelResolver(private val model: Model) : ModelResolver {
     if (contextType in setOf("Unfiltered", "Unspecified", "Population")) return null
     if (targetType == contextType) return "id"
     if (contextType != "Patient") return null
-    return PATIENT_CONTEXT_PATHS[targetType]
+    return R4_PATIENT_CONTEXT_PATHS[targetType]
   }
 
   override fun `is`(valueType: String, type: QName): Boolean? {
@@ -81,23 +82,5 @@ class KotlinFhirModelResolver(private val model: Model) : ModelResolver {
     if (target !is ClassInstance || target.type.getNamespaceURI() != FHIR_MODEL_URI) return null
     val id = target.elements["id"] as? ClassInstance ?: return null
     return (id.elements["value"] as? CqlString)?.value
-  }
-
-  companion object {
-    /**
-     * The element that links each resource type to its patient, for the types the WHO immunization
-     * measles logic retrieves. The cqframework HAPI resolver derives this from HAPI's resource
-     * definitions; there is no equivalent in the model info.
-     */
-    val PATIENT_CONTEXT_PATHS =
-      mapOf(
-        "Immunization" to "patient",
-        "Condition" to "subject",
-        "Observation" to "subject",
-        "MedicationRequest" to "subject",
-        "Encounter" to "subject",
-        "Procedure" to "subject",
-        "AllergyIntolerance" to "patient",
-      )
   }
 }

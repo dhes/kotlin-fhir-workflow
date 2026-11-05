@@ -170,7 +170,7 @@ class InMemoryRetrieveProvider(
     path: String,
     contextValue: String,
   ): Boolean =
-    values(PropertyEvaluator.resolvePath(resource, path)).any { value ->
+    valuesAt(resource, path).any { value ->
       when (value.type.getLocalPart()) {
         "Reference" -> {
           val reference = primitiveValue(value.elements["reference"]) ?: return@any false
@@ -187,7 +187,7 @@ class InMemoryRetrieveProvider(
     codes: Iterable<Code>?,
     valueSet: String?,
   ): Boolean {
-    val resourceCodes = values(PropertyEvaluator.resolvePath(resource, path)).flatMap(::codesOf)
+    val resourceCodes = valuesAt(resource, path).flatMap(::codesOf)
     if (codes != null) {
       return resourceCodes.any { rc ->
         codes.any { c -> c.code == rc.code && (c.system == null || c.system == rc.system) }
@@ -213,6 +213,12 @@ class InMemoryRetrieveProvider(
         )
 
       else -> listOfNotNull(primitiveValue(value)?.let { Code().withCode(it) })
+    }
+
+  /** The values at a dotted [path] in [resource], following every item of a repeating element. */
+  private fun valuesAt(resource: ClassInstance, path: String): List<ClassInstance> =
+    path.split('.').fold(listOf(resource)) { current, name ->
+      current.flatMap { values(PropertyEvaluator.resolvePath(it, name)) }
     }
 
   private fun values(value: Value?): List<ClassInstance> =
