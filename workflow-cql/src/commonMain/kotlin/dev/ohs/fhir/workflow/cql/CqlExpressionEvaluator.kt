@@ -45,31 +45,35 @@ import org.opencds.cqf.cql.engine.runtime.List as CqlList
 import org.opencds.cqf.cql.engine.runtime.String as CqlString
 import org.opencds.cqf.cql.engine.runtime.TemporalHelper
 import org.opencds.cqf.cql.engine.runtime.Value
-import org.opencds.cqf.cql.engine.util.ZonedDateTime
 
 /**
- * Evaluates CQL behind kotlin-fhir-workflow's [ExpressionEvaluator], over one library, for the
- * patient that is each call's subject.
+ * Evaluates CQL behind kotlin-fhir-workflow's [ExpressionEvaluator], for the patient that is each
+ * call's subject.
  *
- * kotlin-fhir-workflow passes a `text/cql` expression as [ProtocolExpression.Elm] with its text. A
- * text that names a definition of [library] gives that definition's value; any other text is
- * evaluated as a CQL expression in a library that includes [library] under its own name. CQL's
- * evaluation date-time is noon on the context's `today`, in the system time zone.
+ * kotlin-fhir-workflow passes a CQL expression as [ProtocolExpression.Elm] with its text and the
+ * canonical URLs of its libraries; the first library is used, named by [libraryName]. A text that
+ * names a definition of that library gives the definition's value; any other text is evaluated as a
+ * CQL expression in a library that includes it under its own name. CQL's evaluation date-time is
+ * noon on the context's `today`, in the system time zone.
  *
- * The patient's resources of the types [library] and the libraries it includes retrieve are read
- * with [patientData] once for each [EvaluationContext], so once for each `$apply`. Values are
- * converted to the types kotlin-fhir-workflow's write-back takes: a CQL String to a Kotlin string,
- * a Code to a [Coding], a Concept to a [CodeableConcept], and a FHIR primitive (such as the `id` of
- * a resource) to its value.
+ * The patient's resources of the types each library and the libraries it includes retrieve are read
+ * with [patientData], once for each type and [EvaluationContext], so once for each `$apply`. Values
+ * are converted to the types kotlin-fhir-workflow's write-back takes: a CQL String to a Kotlin
+ * string, a Code to a [Coding], a Concept to a [CodeableConcept], and a FHIR primitive (such as the
+ * `id` of a resource) to its value.
  *
  * @param patientData the resources of the given types that belong to the patient with the given id
- * @param parameters values for the library's parameters
+ * @param parameters values for the libraries' parameters
+ * @param libraryName the CQL name of the library with the given canonical URL; by default the URL's
+ *   last segment, without a version
  */
 class CqlExpressionEvaluator(
   private val evaluator: FhirCqlEvaluator,
-  private val library: String,
   private val patientData: suspend (patientId: String, types: Set<String>) -> List<Resource>,
   private val parameters: Map<String, Value?> = emptyMap(),
+  private val libraryName: (canonical: String) -> String? = {
+    it.substringBefore('|').substringAfterLast('/')
+  },
 ) : ExpressionEvaluator {
 
   /**
@@ -78,12 +82,10 @@ class CqlExpressionEvaluator(
    */
   constructor(
     evaluator: FhirCqlEvaluator,
-    library: String,
     repository: WorkflowRepository,
     parameters: Map<String, Value?> = emptyMap(),
   ) : this(
     evaluator,
-    library,
     { patientId, types ->
       types.flatMap { type ->
         R4_PATIENT_SEARCH_PARAMETERS[type]?.let {
@@ -94,7 +96,7 @@ class CqlExpressionEvaluator(
     parameters,
   )
 
-  private val retrievedTypes: Set<String> by lazy { retrievedTypes(library, mutableSetOf()) }
+  private val retrievedTypes = mutableMapOf<String, Set<String>>()
 
   private var last: PatientEvaluation? = null
 
@@ -102,16 +104,23 @@ class CqlExpressionEvaluator(
     expression: ProtocolExpression,
     context: EvaluationContext,
   ): EvaluationResult {
-    val text =
-      (expression as? ProtocolExpression.Elm)?.elmJson
+    val elm =
+      expression as? ProtocolExpression.Elm
         ?: return EvaluationResult.Failure("Not CQL: $expression")
+    val canonical =
+      elm.library.firstOrNull()
+        ?: return EvaluationResult.Failure("No library for CQL expression: ${elm.elmJson}")
+    val library =
+      libraryName(canonical) ?: return EvaluationResult.Failure("No library named for $canonical")
     return try {
       val patient = patientEvaluation(context)
+      patient.read(retrievedTypes(library))
+      val definitions = patient.definitions(library)
       val value =
-        if (text in patient.definitions) {
-          patient.definitions[text]
+        if (elm.elmJson in definitions) {
+          definitions[elm.elmJson]
         } else {
-          val name = evaluator.inlineLibraries.nameFor(text, library)
+          val name = evaluator.inlineLibraries.nameFor(elm.elmJson, library)
           patient
             .evaluate(name, listOf(InlineCqlLibraries.DEFINITION))[
               InlineCqlLibraries.DEFINITION,
@@ -124,24 +133,21 @@ class CqlExpressionEvaluator(
     }
   }
 
-  /** The patient's data for [context], read on the first call with that [EvaluationContext]. */
-  private suspend fun patientEvaluation(context: EvaluationContext): PatientEvaluation {
+  /** The patient's evaluation for [context], begun on the first call with that context. */
+  private fun patientEvaluation(context: EvaluationContext): PatientEvaluation {
     last
       ?.takeIf { it.context === context }
       ?.let {
         return it
       }
     val patient = context.subject as? Patient ?: error("The subject is not a Patient")
-    val patientId = patient.id ?: error("The Patient has no id")
-    val dateTime = evaluationDateTime(context.today)
-    val converter = KotlinFhirToCql(TemporalHelper.zoneToOffset(dateTime.offset))
-    val resources = listOf(patient) + patientData(patientId, retrievedTypes - "Patient")
-    return PatientEvaluation(context, patientId, resources.map(converter::convert), dateTime).also {
-      last = it
-    }
+    return PatientEvaluation(context, patient).also { last = it }
   }
 
-  /** The FHIR types that [name] and the libraries it includes, directly or not, retrieve. */
+  /** The FHIR types that [library] and the libraries it includes, directly or not, retrieve. */
+  private fun retrievedTypes(library: String): Set<String> =
+    retrievedTypes.getOrPut(library) { retrievedTypes(library, mutableSetOf()) }
+
   private fun retrievedTypes(name: String, seen: MutableSet<String>): Set<String> {
     if (!seen.add(name)) return emptySet()
     val elm =
@@ -155,11 +161,26 @@ class CqlExpressionEvaluator(
 
   private inner class PatientEvaluation(
     val context: EvaluationContext,
-    private val patientId: String,
-    private val resources: List<ClassInstance>,
-    private val dateTime: ZonedDateTime,
+    private val patient: Patient,
   ) {
-    val definitions: Map<String, Value?> by lazy { evaluate(library, null) }
+    private val patientId = patient.id ?: error("The Patient has no id")
+    private val dateTime = evaluationDateTime(context.today)
+    private val converter = KotlinFhirToCql(TemporalHelper.zoneToOffset(dateTime.offset))
+    private val readTypes = mutableSetOf("Patient")
+    private val resources = mutableListOf(converter.convert(patient))
+    private val definitions = mutableMapOf<String, Map<String, Value?>>()
+
+    /** Reads the patient's resources of those of [types] not read yet. */
+    suspend fun read(types: Set<String>) {
+      val unread = types - readTypes
+      if (unread.isEmpty()) return
+      resources += patientData(patientId, unread).map(converter::convert)
+      readTypes += unread
+      definitions.clear()
+    }
+
+    fun definitions(library: String): Map<String, Value?> =
+      definitions.getOrPut(library) { evaluate(library, null) }
 
     fun evaluate(name: String, expressions: List<String>?): Map<String, Value?> =
       evaluator.evaluate(name, patientId, resources, expressions, parameters, dateTime)

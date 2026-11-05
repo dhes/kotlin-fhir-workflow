@@ -64,7 +64,7 @@ class CqlExpressionEvaluatorTest {
           "id": "follow-up",
           "condition": [{
             "kind": "applicability",
-            "expression": {"language": "text/cql", "expression": "Has Immunization"}
+            "expression": {"language": "text/cql-identifier", "expression": "Has Immunization"}
           }]
         }]
       }
@@ -93,7 +93,10 @@ class CqlExpressionEvaluatorTest {
     val result =
       cqlEvaluator(listOf(patient, immunization))
         .evaluate(
-          ProtocolExpression.Elm("Immunizations.\"Immunization Count\" = 1"),
+          ProtocolExpression.Elm(
+            "Immunizations.\"Immunization Count\" = 1",
+            listOf("http://example.org/Library/Immunizations"),
+          ),
           EvaluationContext(subject = patient, today = TODAY),
         )
     assertEquals(EvaluationResult.Bool(true), result)
@@ -105,9 +108,7 @@ class CqlExpressionEvaluatorTest {
     val operator =
       FhirOperator(
         repository,
-        ExpressionEvaluatorRouter(
-          elm = CqlExpressionEvaluator(evaluator, "Immunizations", repository)
-        ),
+        ExpressionEvaluatorRouter(elm = CqlExpressionEvaluator(evaluator, repository)),
         noResolver,
       )
     suspend fun actions(subject: Resource) =
@@ -140,7 +141,7 @@ class CqlExpressionEvaluatorTest {
       .size
 
   private fun cqlEvaluator(resources: List<Resource>) =
-    CqlExpressionEvaluator(evaluator, "Immunizations", { _, _ -> resources - patient })
+    CqlExpressionEvaluator(evaluator, { _, _ -> resources - patient })
 
   private fun decode(text: String): Resource = json.decodeFromString(Resource.serializer(), text)
 

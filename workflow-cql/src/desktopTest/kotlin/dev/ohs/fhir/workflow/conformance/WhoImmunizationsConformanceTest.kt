@@ -35,10 +35,7 @@ import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -61,24 +58,12 @@ private val fhirJson = Json {
 }
 
 class WhoImmunizationsConformanceTest {
+  /** WHO's PlanDefinitions as published, their CQL evaluated by [CqlExpressionEvaluator]. */
   @Test
   fun planDefinitionApply() =
     runTest(timeout = 10.minutes) {
       val suite = suite() ?: return@runTest
-      val counts = suite.counts { suite.definitions }
-      assertEquals(expectedOutcomes, counts)
-    }
-
-  /**
-   * As [planDefinitionApply], with the PlanDefinitions' `text/cql-identifier` and
-   * `text/cql-expression` expressions given as `text/cql`, the CQL language that `$apply` routes.
-   */
-  @Test
-  fun planDefinitionApplyWithCqlLanguage() =
-    runTest(timeout = 10.minutes) {
-      val suite = suite() ?: return@runTest
-      val counts = suite.counts { suite.definitionsWithCqlLanguage }
-      assertEquals(expectedOutcomesWithCqlLanguage, counts)
+      assertEquals(expectedOutcomes, suite.counts())
     }
 
   private fun suite(): Suite? {
@@ -115,9 +100,6 @@ class WhoImmunizationsConformanceTest {
 
     val definitions: Map<String, Resource> = definitionsJson.mapValues { decode(it.value) }
 
-    val definitionsWithCqlLanguage: Map<String, Resource> =
-      definitionsJson.mapValues { decode(withCqlLanguage(it.value) as JsonObject) }
-
     /** The package's Library resources as JSON. */
     private val libraries: List<JsonObject> = packageJson("Library-")
 
@@ -148,8 +130,8 @@ class WhoImmunizationsConformanceTest {
         InMemoryTerminologyProvider(packageJson("ValueSet-").map { decode(it) as ValueSet }),
       )
 
-    suspend fun counts(definitions: () -> Map<String, Resource>): Map<String, Int> {
-      val resolved = definitions()
+    suspend fun counts(): Map<String, Int> {
+      val resolved = definitions
       val resolver = CanonicalResolver { _, canonical -> resolved[canonical.substringBefore("|")] }
       val byOutcome = testCases.groupBy { outcome(it, resolved, resolver) }.toSortedMap()
       println(
@@ -181,16 +163,13 @@ class WhoImmunizationsConformanceTest {
       val patient =
         resources.filterIsInstance<Patient>().singleOrNull { it.id == testCase.patient }
           ?: return "Patient not in the test bundle"
-      val library =
-        plan.library.firstOrNull()?.value?.let { libraryNames[it] }
-          ?: return "PlanDefinition library not in the package"
       val today = testCase.today
       val cql =
         CqlExpressionEvaluator(
           cqlEvaluator,
-          library,
           { _, _ -> resources.filter { it !== patient } },
           mapOf("Today" to Date(today.year, today.monthNumber, today.dayOfMonth)),
+          libraryNames::get,
         )
       val carePlan =
         try {
@@ -233,42 +212,12 @@ class WhoImmunizationsConformanceTest {
   private companion object {
     const val PASS = "Passes"
 
-    /** Gives every `text/cql-identifier` and `text/cql-expression` expression as `text/cql`. */
-    fun withCqlLanguage(element: JsonElement): JsonElement =
-      when (element) {
-        is JsonArray -> JsonArray(element.map(::withCqlLanguage))
-
-        is JsonObject ->
-          JsonObject(
-            element.mapValues { (key, value) ->
-              val language = (value as? JsonPrimitive)?.content
-              if (
-                key == "language" &&
-                  (language == "text/cql-identifier" || language == "text/cql-expression")
-              ) {
-                JsonPrimitive("text/cql")
-              } else {
-                withCqlLanguage(value)
-              }
-            }
-          )
-
-        else -> element
-      }
-
     /**
      * The number of test cases with each outcome, at smart-immunizations v1.0.0 and package 1.0.0.
      *
      * N.B. This should be kept in sync with the test conformance table in `docs/conformance.md`.
      */
     val expectedOutcomes: Map<String, Int> =
-      sortedMapOf(
-        "IllegalStateException: Unsupported expression language: text/cql-identifier" to 1020,
-        "Test bundle not decoded: SerializationException" to 1,
-      )
-
-    /** As [expectedOutcomes], for [planDefinitionApplyWithCqlLanguage]. */
-    val expectedOutcomesWithCqlLanguage: Map<String, Int> =
       sortedMapOf(
         PASS to 1004,
         "Contained resource count differs from WHO's" to 16,

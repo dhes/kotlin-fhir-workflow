@@ -19,6 +19,12 @@ sealed class ProtocolExpression {
   /** text/fhirpath — the reference language. */
   data class FhirPath(val expression: String) : ProtocolExpression()
 
-  /** application/elm+json — evaluated only when an ELM evaluator is available (deferred). */
-  data class Elm(val elmJson: String) : ProtocolExpression()
+  /**
+   * application/elm+json — evaluated only when an ELM evaluator is available (deferred). Also
+   * text/cql, text/cql-identifier and text/cql-expression, with [library] the canonical URLs of the
+   * libraries their names refer to: the `library` of the PlanDefinition or ActivityDefinition that
+   * holds the expression.
+   */
+  data class Elm(val elmJson: String, val library: List<String> = emptyList()) :
+    ProtocolExpression()
 }
