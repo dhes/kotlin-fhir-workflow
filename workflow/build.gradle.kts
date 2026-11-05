@@ -17,10 +17,6 @@ kotlin {
     namespace = "dev.ohs.fhir.workflow"
     compileSdk = 36
     minSdk = 26
-    // Probe: run the desktop tests, WHO's test cases included, on an Android device or emulator.
-    withDeviceTestBuilder { sourceSetTreeName = "test" }
-      .configure { instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
-    packaging { resources { excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/DEPENDENCIES", "META-INF/*.md", "META-INF/INDEX.LIST") } }
   }
 
   jvm("desktop")
@@ -54,26 +50,6 @@ kotlin {
         implementation(libs.kotlin.test)
         implementation(libs.kotest.assertions.core)
         implementation(libs.kotlinx.coroutines.test)
-      }
-    }
-    // cqframework's CQL compiler and engine, for WHO's immunization test cases; not on iOS.
-    named("desktopTest") {
-      dependencies {
-        implementation(libs.cqframework.cql.to.elm)
-        implementation(libs.cqframework.engine)
-        implementation(libs.cqframework.quick)
-        implementation(libs.cqframework.ucum)
-      }
-    }
-    named("androidDeviceTest") {
-      kotlin.srcDir("src/desktopTest/kotlin")
-      dependencies {
-        implementation(libs.cqframework.cql.to.elm)
-        implementation(libs.cqframework.engine)
-        implementation(libs.cqframework.quick)
-        implementation(libs.cqframework.ucum)
-        implementation("androidx.test:runner:1.6.2")
-        implementation("androidx.test.ext:junit:1.2.1")
       }
     }
   }

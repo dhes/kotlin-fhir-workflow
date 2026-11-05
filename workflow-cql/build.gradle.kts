@@ -14,6 +14,21 @@ kotlin {
     namespace = "dev.ohs.fhir.workflow.cql"
     compileSdk = 36
     minSdk = 26
+    // Runs the desktop tests, WHO's test cases included, on an Android device or emulator.
+    withDeviceTestBuilder { sourceSetTreeName = "test" }
+      .configure { instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    packaging {
+      resources {
+        excludes +=
+          setOf(
+            "META-INF/LICENSE*",
+            "META-INF/NOTICE*",
+            "META-INF/DEPENDENCIES",
+            "META-INF/*.md",
+            "META-INF/INDEX.LIST",
+          )
+      }
+    }
   }
 
   jvm("desktop")
@@ -51,6 +66,14 @@ kotlin {
     named("desktopMain") { dependencies { implementation(libs.cqframework.ucum) } }
     // The FHIR 4.0.1 model info and FHIRHelpers, read from cqframework's quick jar in the tests.
     named("desktopTest") { dependencies { implementation(libs.cqframework.quick) } }
+    named("androidDeviceTest") {
+      kotlin.srcDir("src/desktopTest/kotlin")
+      dependencies {
+        implementation(libs.cqframework.quick)
+        implementation("androidx.test:runner:1.6.2")
+        implementation("androidx.test.ext:junit:1.2.1")
+      }
+    }
   }
 }
 

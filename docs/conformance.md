@@ -120,7 +120,7 @@ tables, the guidance text). The results below are for release
 the package `smart.who.int.immunizations` 1.0.0 from packages.fhir.org, which holds those
 PlanDefinitions.
 
-[`WhoImmunizationsConformanceTest`](../workflow/src/desktopTest/kotlin/dev/ohs/fhir/workflow/conformance/WhoImmunizationsConformanceTest.kt)
+[`WhoImmunizationsConformanceTest`](../workflow-cql/src/desktopTest/kotlin/dev/ohs/fhir/workflow/conformance/WhoImmunizationsConformanceTest.kt)
 runs them on the JVM (desktop). WHO's files are not in this repository; the test reads them from
 the paths in `WHO_IMMUNIZATIONS_FEATURES` and `WHO_IMMUNIZATIONS_PACKAGE`, and does nothing when
 those are not set:
@@ -132,7 +132,7 @@ mkdir -p "$WHO/package" && curl -sL https://packages.fhir.org/smart.who.int.immu
 
 WHO_IMMUNIZATIONS_FEATURES="$WHO/smart-immunizations/input/testing/features/plandefinition" \
 WHO_IMMUNIZATIONS_PACKAGE="$WHO/package/package" \
-  ./gradlew :workflow:desktopTest --tests '*WhoImmunizationsConformanceTest*' --rerun
+  ./gradlew :workflow-cql:desktopTest --tests '*WhoImmunizationsConformanceTest*' --rerun
 ```
 
 | Test cases                                   | Count | Root cause     | Tracking issue / PR | Note                                                                                                                                  |
@@ -145,8 +145,8 @@ because of the test case itself (Test).
 
 ### With CQL
 
-WHO's PlanDefinitions express their logic in CQL. The tests evaluate it with cqframework's CQL
-engine (`org.cqframework` 5.5.0, desktop tests only), plugged into `ExpressionEvaluatorRouter` in
+WHO's PlanDefinitions express their logic in CQL. The tests evaluate it with the `workflow-cql`
+module's evaluator (cqframework's CQL engine, `org.cqframework` 5.5.0), plugged into `ExpressionEvaluatorRouter` in
 place of `ElmExpressionEvaluator`, over the package's libraries and value sets. A second test,
 `planDefinitionApplyWithCqlLanguage`, gives WHO's `text/cql-identifier` and `text/cql-expression`
 expressions as `text/cql` before applying them, to show what follows once those languages are

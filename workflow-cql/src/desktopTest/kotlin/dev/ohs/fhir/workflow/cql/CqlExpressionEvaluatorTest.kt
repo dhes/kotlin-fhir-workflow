@@ -20,7 +20,6 @@ import dev.ohs.fhir.model.r4.RequestGroup
 import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.FhirOperator
-import dev.ohs.fhir.workflow.WorkflowRepository
 import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.EvaluationResult
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
@@ -107,7 +106,11 @@ class CqlExpressionEvaluatorTest {
   }
 
   private suspend fun actions(resources: List<Resource>): Int =
-    FhirOperator(NoRepository, ExpressionEvaluatorRouter(elm = cqlEvaluator(resources)), noResolver)
+    FhirOperator(
+        EmptyWorkflowRepository,
+        ExpressionEvaluatorRouter(elm = cqlEvaluator(resources)),
+        noResolver,
+      )
       .generateCarePlan(planDefinition, patient, today = TODAY)
       .contained
       .filterIsInstance<RequestGroup>()
@@ -134,25 +137,6 @@ class CqlExpressionEvaluatorTest {
     javaClass.classLoader.getResource(path)?.readText() ?: error("$path not on the classpath")
 
   private val noResolver = CanonicalResolver { _, _ -> null }
-
-  private object NoRepository : WorkflowRepository {
-    override suspend fun read(type: String, id: String): Resource? = null
-
-    override suspend fun create(resource: Resource): String = error("not used")
-
-    override suspend fun update(resource: Resource) = error("not used")
-
-    override suspend fun delete(type: String, id: String) = error("not used")
-
-    override suspend fun searchByReferenceParam(
-      type: String,
-      param: String,
-      referenceValue: String,
-    ): List<Resource> = emptyList()
-
-    override suspend fun searchByUri(type: String, param: String, uri: String): List<Resource> =
-      emptyList()
-  }
 
   private companion object {
     val TODAY = LocalDate(2026, 7, 7)

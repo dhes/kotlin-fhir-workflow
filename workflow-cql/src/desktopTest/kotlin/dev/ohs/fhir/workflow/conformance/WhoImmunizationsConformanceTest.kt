@@ -23,14 +23,13 @@ import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.model.r4.ValueSet
 import dev.ohs.fhir.workflow.CanonicalResolver
 import dev.ohs.fhir.workflow.FhirOperator
-import dev.ohs.fhir.workflow.conformance.cql.CqlExpressionEvaluator
-import dev.ohs.fhir.workflow.conformance.cql.FhirCqlEvaluator
-import dev.ohs.fhir.workflow.conformance.cql.InMemoryTerminologyProvider
-import dev.ohs.fhir.workflow.conformance.cql.InlineCqlLibraries
-import dev.ohs.fhir.workflow.conformance.cql.KotlinFhirToCql
+import dev.ohs.fhir.workflow.cql.CqlExpressionEvaluator
+import dev.ohs.fhir.workflow.cql.EmptyWorkflowRepository
+import dev.ohs.fhir.workflow.cql.FhirCqlEvaluator
+import dev.ohs.fhir.workflow.cql.InMemoryTerminologyProvider
+import dev.ohs.fhir.workflow.cql.InlineCqlLibraries
+import dev.ohs.fhir.workflow.cql.KotlinFhirToCql
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
-import dev.ohs.fhir.workflow.fhirJson
-import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import java.io.File
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -39,6 +38,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -60,6 +60,11 @@ import org.opencds.cqf.cql.engine.runtime.TemporalHelper
  * `package` directory of the unpacked `smart.who.int.immunizations` package; without both, the test
  * does nothing.
  */
+private val fhirJson = Json {
+  encodeDefaults = false
+  explicitNulls = false
+}
+
 class WhoImmunizationsConformanceTest {
   @Test
   fun planDefinitionApply() =
@@ -212,7 +217,7 @@ class WhoImmunizationsConformanceTest {
         )
       val carePlan =
         try {
-          FhirOperator(InMemoryWorkflowRepository(), ExpressionEvaluatorRouter(elm = cql), resolver)
+          FhirOperator(EmptyWorkflowRepository, ExpressionEvaluatorRouter(elm = cql), resolver)
             .generateCarePlan(plan, patient, today = today)
         } catch (e: Throwable) {
           return "${e::class.simpleName}: ${e.message?.lineSequence()?.first()}"
