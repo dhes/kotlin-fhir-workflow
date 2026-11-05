@@ -31,17 +31,19 @@ val evaluator =
 val operator =
   FhirOperator(
     repository,
-    ExpressionEvaluatorRouter(elm = CqlExpressionEvaluator(evaluator, "MyLibrary", repository)),
+    ExpressionEvaluatorRouter(elm = CqlExpressionEvaluator(evaluator, repository)),
   )
 
 val carePlan = operator.generateCarePlan(planDefinition, patient, today = today)
 ```
 
-`$apply` passes `text/cql` expressions to the router's `elm` evaluator. A text that names a
-definition of the library gives that definition's value; any other text is evaluated as a CQL
-expression.
+`$apply` passes `text/cql`, `text/cql-identifier` and `text/cql-expression` expressions to the
+router's `elm` evaluator, each with the `library` of the PlanDefinition or ActivityDefinition that
+holds it. The evaluator uses the first library, and names it by its canonical URL's last segment
+unless given another way. A text that names a definition of the library gives that definition's
+value; any other text is evaluated as a CQL expression.
 
-For each `$apply`, `CqlExpressionEvaluator` reads the patient's resources of the types the library
+For each `$apply`, `CqlExpressionEvaluator` reads the patient's resources of the types each library
 and the libraries it includes retrieve, from the `WorkflowRepository`, once. It searches each type
 by the search parameter on the element that links it to its patient, such as `subject` for
 Condition and `patient` for Immunization. It can instead take a function that returns the patient's
