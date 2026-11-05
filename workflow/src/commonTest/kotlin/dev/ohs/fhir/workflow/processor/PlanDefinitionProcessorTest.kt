@@ -29,6 +29,7 @@ import dev.ohs.fhir.model.r4.MedicationRequest
 import dev.ohs.fhir.model.r4.Patient
 import dev.ohs.fhir.model.r4.PlanDefinition
 import dev.ohs.fhir.model.r4.RequestGroup
+import dev.ohs.fhir.model.r4.Resource
 import dev.ohs.fhir.model.r4.ServiceRequest
 import dev.ohs.fhir.model.r4.String as FhirString
 import dev.ohs.fhir.model.r4.Task
@@ -36,13 +37,19 @@ import dev.ohs.fhir.model.r4.Uri
 import dev.ohs.fhir.model.r4.terminologies.PublicationStatus
 import dev.ohs.fhir.workflow.RepositoryCanonicalResolver
 import dev.ohs.fhir.workflow.expression.EvaluationContext
+import dev.ohs.fhir.workflow.expression.EvaluationResult
+import dev.ohs.fhir.workflow.expression.ExpressionEvaluator
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
+import dev.ohs.fhir.workflow.expression.ProtocolExpression
+import dev.ohs.fhir.workflow.fhirJson
 import dev.ohs.fhir.workflow.testing.InMemoryWorkflowRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
+
+private const val PLAN_LOGIC = "http://example.org/Library/PlanLogic"
 
 class PlanDefinitionProcessorTest {
   @Test
@@ -172,6 +179,82 @@ class PlanDefinitionProcessorTest {
       )
     }
   }
+
+  @Test
+  fun shouldPassEachCqlExpressionTheLibraryOfTheResourceThatHoldsIt() = runTest {
+    val repo =
+      InMemoryWorkflowRepository().apply {
+        registerUriIndex("ActivityDefinition", "url") {
+          listOf((it as ActivityDefinition).url?.value ?: "")
+        }
+        create(
+          decode(
+            """
+            {
+              "resourceType": "ActivityDefinition",
+              "id": "follow-up",
+              "url": "http://example.org/ActivityDefinition/follow-up",
+              "status": "active",
+              "library": ["http://example.org/Library/ActivityLogic"],
+              "dynamicValue": [{
+                "path": "description",
+                "expression": {"language": "text/cql-expression", "expression": "Description"}
+              }]
+            }
+            """
+          )
+        )
+      }
+    val pd =
+      decode(
+        """
+        {
+          "resourceType": "PlanDefinition",
+          "id": "epi",
+          "status": "active",
+          "library": ["http://example.org/Library/PlanLogic"],
+          "action": [{
+            "id": "a1",
+            "condition": [{
+              "kind": "applicability",
+              "expression": {"language": "text/cql-identifier", "expression": "Is Due"}
+            }],
+            "definitionCanonical": "http://example.org/ActivityDefinition/follow-up"
+          }]
+        }
+        """
+      )
+        as PlanDefinition
+    val received = mutableListOf<ProtocolExpression>()
+    val evaluator =
+      object : ExpressionEvaluator {
+        override suspend fun evaluate(
+          expression: ProtocolExpression,
+          context: EvaluationContext,
+        ): EvaluationResult {
+          received += expression
+          return if (expression == ProtocolExpression.Elm("Is Due", listOf(PLAN_LOGIC))) {
+            EvaluationResult.Bool(true)
+          } else {
+            EvaluationResult.Values(listOf("Due"))
+          }
+        }
+      }
+    val ctx = EvaluationContext(subject = Patient(id = "p1"), today = LocalDate(2026, 7, 7))
+
+    PlanDefinitionProcessor(evaluator, RepositoryCanonicalResolver(repo)).apply(pd, ctx)
+
+    assertEquals(
+      listOf<ProtocolExpression>(
+        ProtocolExpression.Elm("Is Due", listOf(PLAN_LOGIC)),
+        ProtocolExpression.Elm("Description", listOf("http://example.org/Library/ActivityLogic")),
+      ),
+      received,
+    )
+  }
+
+  private fun decode(json: String): Resource =
+    fhirJson.decodeFromString(Resource.serializer(), json)
 
   private fun planWithApplicability(language: Expression.ExpressionLanguage, expression: String) =
     PlanDefinition(

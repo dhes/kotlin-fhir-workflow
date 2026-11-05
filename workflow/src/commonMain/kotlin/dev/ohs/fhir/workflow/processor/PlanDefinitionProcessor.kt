@@ -107,7 +107,7 @@ class PlanDefinitionProcessor(
       val prerequisitesMet =
         action.relatedAction.all { rel -> applicableActionIds.contains(rel.actionId.value) }
       if (!prerequisitesMet) continue
-      if (!isApplicable(action, context)) continue
+      if (!isApplicable(action, planDefinition.library, context)) continue
       action.id?.let { applicableActionIds.add(it) }
 
       val title = action.title ?: resolveTitle(action)
@@ -130,6 +130,7 @@ class PlanDefinitionProcessor(
 
   private suspend fun isApplicable(
     action: PlanDefinition.Action,
+    library: List<Canonical>,
     context: EvaluationContext,
   ): Boolean {
     val applicabilityConditions =
@@ -141,7 +142,7 @@ class PlanDefinitionProcessor(
             ?: throw IllegalStateException(
               "Applicability condition on action '${action.id}' has no expression"
             )
-        when (val result = evaluator.evaluate(expression.toProtocolExpression(), context)) {
+        when (val result = evaluator.evaluate(expression.toProtocolExpression(library), context)) {
           is EvaluationResult.Bool -> result.value
 
           is EvaluationResult.Failure ->
@@ -235,17 +236,21 @@ class PlanDefinitionProcessor(
       }
     val writes =
       ad.dynamicValue.mapNotNull { dv ->
-        dv.path.value?.let { path -> DynamicWrite(path, dv.expression) }
+        dv.path.value?.let { path -> DynamicWrite(path, dv.expression, ad.library) }
       } +
         action.dynamicValue.mapNotNull { dv ->
           val path = dv.path?.value ?: return@mapNotNull null
           val expression = dv.expression ?: return@mapNotNull null
-          DynamicWrite(path, expression)
+          DynamicWrite(path, expression, planDefinition.library)
         }
     return applyDynamicValues(request, writes, context)
   }
 
-  private data class DynamicWrite(val path: String, val expression: Expression)
+  private data class DynamicWrite(
+    val path: String,
+    val expression: Expression,
+    val library: List<Canonical>,
+  )
 
   private suspend fun applyDynamicValues(
     resource: Resource,
@@ -255,7 +260,7 @@ class PlanDefinitionProcessor(
     if (writes.isEmpty()) return resource
     var json = fhirJson.encodeToJsonElement(Resource.serializer(), resource).jsonObject
     for (write in writes) {
-      val value = evaluateSingle(write.expression, context)
+      val value = evaluateSingle(write.expression, write.library, context)
       json = DynamicValueApplier.set(json, write.path, value)
     }
     return fhirJson.decodeFromJsonElement(Resource.serializer(), json)
@@ -263,9 +268,10 @@ class PlanDefinitionProcessor(
 
   private suspend fun evaluateSingle(
     expression: Expression,
+    library: List<Canonical>,
     context: EvaluationContext,
   ): JsonElement =
-    when (val result = evaluator.evaluate(expression.toProtocolExpression(), context)) {
+    when (val result = evaluator.evaluate(expression.toProtocolExpression(library), context)) {
       is EvaluationResult.Bool -> JsonPrimitive(result.value)
 
       is EvaluationResult.Values ->
@@ -309,12 +315,23 @@ class PlanDefinitionProcessor(
   }
 }
 
-/** Routes a FHIR [Expression] to the workflow [ProtocolExpression] by its declared language. */
-private fun Expression.toProtocolExpression(): ProtocolExpression {
+/**
+ * Routes a FHIR [Expression] to the workflow [ProtocolExpression] by its declared language; a CQL
+ * expression carries [library], the libraries of the resource that holds it.
+ */
+private fun Expression.toProtocolExpression(library: List<Canonical>): ProtocolExpression {
   val text = expression?.value ?: throw IllegalStateException("Expression has no expression text")
   return when (language.code) {
     ExpressionLanguage.Text_Fhirpath.code -> ProtocolExpression.FhirPath(text)
-    ExpressionLanguage.Text_Cql.code -> ProtocolExpression.Elm(text)
+
+    ExpressionLanguage.Text_Cql.code,
+    TEXT_CQL_IDENTIFIER,
+    TEXT_CQL_EXPRESSION -> ProtocolExpression.Elm(text, library.mapNotNull { it.value })
+
     else -> throw IllegalStateException("Unsupported expression language: ${language.code}")
   }
 }
+
+// CQL expression languages that R4's expression-language value set does not list.
+private const val TEXT_CQL_IDENTIFIER = "text/cql-identifier"
+private const val TEXT_CQL_EXPRESSION = "text/cql-expression"
