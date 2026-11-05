@@ -19,6 +19,7 @@ import dev.ohs.fhir.model.r4.ActivityDefinition
 import dev.ohs.fhir.model.r4.Canonical
 import dev.ohs.fhir.model.r4.CarePlan
 import dev.ohs.fhir.model.r4.CodeableConcept
+import dev.ohs.fhir.model.r4.Coding
 import dev.ohs.fhir.model.r4.CommunicationRequest
 import dev.ohs.fhir.model.r4.Enumeration
 import dev.ohs.fhir.model.r4.Expression
@@ -41,8 +42,7 @@ import dev.ohs.fhir.workflow.fhirJson
 import dev.ohs.fhir.workflow.logicalId
 import dev.ohs.fhir.workflow.resolve
 import dev.ohs.fhir.workflow.resourceTypeName
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.json.jsonObject
 
 /**
@@ -254,25 +254,35 @@ class PlanDefinitionProcessor(
   ): Resource {
     if (writes.isEmpty()) return resource
     var json = fhirJson.encodeToJsonElement(Resource.serializer(), resource).jsonObject
+    val descriptor = requestDescriptor(resource)
     for (write in writes) {
       val value = evaluateSingle(write.expression, context)
-      json = DynamicValueApplier.set(json, write.path, value)
+      val target =
+        descriptor?.let { dynamicValueTarget(it, write.path, value) }
+          ?: DynamicValueTarget(write.path, isPrimitive = false)
+      // A Coding written to a primitive (a FHIR code such as `priority`) gives its code.
+      val written = (value as? Coding)?.code?.takeIf { target.isPrimitive } ?: value
+      json = DynamicValueApplier.set(json, target.path, evaluatedValueToJson(written))
     }
     return fhirJson.decodeFromJsonElement(Resource.serializer(), json)
   }
 
-  private suspend fun evaluateSingle(
-    expression: Expression,
-    context: EvaluationContext,
-  ): JsonElement =
+  private fun requestDescriptor(resource: Resource): SerialDescriptor? =
+    when (resource) {
+      is MedicationRequest -> MedicationRequest.serializer().descriptor
+      is ServiceRequest -> ServiceRequest.serializer().descriptor
+      is CommunicationRequest -> CommunicationRequest.serializer().descriptor
+      is Task -> Task.serializer().descriptor
+      else -> null
+    }
+
+  private suspend fun evaluateSingle(expression: Expression, context: EvaluationContext): Any =
     when (val result = evaluator.evaluate(expression.toProtocolExpression(), context)) {
-      is EvaluationResult.Bool -> JsonPrimitive(result.value)
+      is EvaluationResult.Bool -> result.value
 
       is EvaluationResult.Values ->
-        evaluatedValueToJson(
-          result.value.firstOrNull()
-            ?: throw IllegalStateException("dynamicValue expression produced no value")
-        )
+        result.value.firstOrNull()
+          ?: throw IllegalStateException("dynamicValue expression produced no value")
 
       is EvaluationResult.Failure ->
         throw IllegalStateException("dynamicValue failed to evaluate: ${result.message}")
