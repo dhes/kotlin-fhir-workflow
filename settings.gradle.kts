@@ -18,4 +18,6 @@ rootProject.name = "kotlin-fhir-workflow"
 
 include(":workflow")
 
+include(":workflow-cql")
+
 include(":workflow-demo")

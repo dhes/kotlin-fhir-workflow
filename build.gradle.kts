@@ -19,7 +19,7 @@ spotless {
 
   kotlin {
     target("**/*.kt")
-    targetExclude("**/build/")
+    targetExclude("**/build/", "**/generated/**")
     ktlint(ktLintVersion).editorConfigOverride(ktLintOptions)
     ktfmt().googleStyle()
     licenseHeaderFile(
