@@ -24,9 +24,6 @@ import dev.ohs.fhir.workflow.expression.EvaluationContext
 import dev.ohs.fhir.workflow.expression.EvaluationResult
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
 import dev.ohs.fhir.workflow.expression.ProtocolExpression
-import java.math.BigDecimal
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
@@ -81,9 +78,6 @@ class CqlExpressionEvaluatorTest {
       resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml"),
     )
 
-  private val inlineLibraries =
-    InlineCqlLibraries().also { evaluator.libraryManager.librarySourceLoader.registerProvider(it) }
-
   @Test
   fun appliesTheActionWhenTheCqlDefinitionIsTrue() = runTest {
     assertEquals(1, actions(listOf(patient, immunization)))
@@ -105,6 +99,33 @@ class CqlExpressionEvaluatorTest {
     assertEquals(EvaluationResult.Bool(true), result)
   }
 
+  @Test
+  fun readsEachPatientsDataFromTheRepositoryOnEachApply() = runTest {
+    val repository = ListWorkflowRepository()
+    val operator =
+      FhirOperator(
+        repository,
+        ExpressionEvaluatorRouter(
+          elm = CqlExpressionEvaluator(evaluator, "Immunizations", repository)
+        ),
+        noResolver,
+      )
+    suspend fun actions(subject: Resource) =
+      operator
+        .generateCarePlan(planDefinition, subject, today = TODAY)
+        .contained
+        .filterIsInstance<RequestGroup>()
+        .single()
+        .action
+        .size
+    val otherPatient = decode("""{"resourceType": "Patient", "id": "p2"}""")
+
+    assertEquals(0, actions(patient))
+    repository.create(immunization)
+    assertEquals(1, actions(patient))
+    assertEquals(0, actions(otherPatient))
+  }
+
   private suspend fun actions(resources: List<Resource>): Int =
     FhirOperator(
         EmptyWorkflowRepository,
@@ -118,18 +139,8 @@ class CqlExpressionEvaluatorTest {
       .action
       .size
 
-  private fun cqlEvaluator(resources: List<Resource>): CqlExpressionEvaluator {
-    val converter = KotlinFhirToCql(BigDecimal.ZERO)
-    return CqlExpressionEvaluator(
-      evaluator,
-      inlineLibraries,
-      "Immunizations",
-      "p1",
-      resources.map { converter.convert(it) },
-      emptyMap(),
-      ZonedDateTime.of(2026, 7, 7, 12, 0, 0, 0, ZoneOffset.UTC),
-    )
-  }
+  private fun cqlEvaluator(resources: List<Resource>) =
+    CqlExpressionEvaluator(evaluator, "Immunizations", { _, _ -> resources - patient })
 
   private fun decode(text: String): Resource = json.decodeFromString(Resource.serializer(), text)
 

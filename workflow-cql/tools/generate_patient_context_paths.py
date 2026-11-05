@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Generates R4PatientContextPaths.kt: for each FHIR R4 resource type, the element that links it to
-its patient, by the rule of cqframework's HAPI-based R4FhirModelResolver.getContextPath.
+its patient, by the rule of cqframework's HAPI-based R4FhirModelResolver.getContextPath, and the
+search parameter on that element.
 
 The rule: four fixed cases (MedicationStatement and QuestionnaireResponse: subject; Task: for;
 Coverage: beneficiary); otherwise the first element, in definition order and searching backbone
 elements depth first, whose only type is Reference with Patient among its target profiles.
 Choice elements are not searched.
+
+The search parameter is one whose expression is exactly that element, such as `subject` for
+Condition.subject, not `patient`, whose expression is Condition.subject.where(resolve() is Patient):
+`patient` when there is one, otherwise the first by name.
 
 Usage: generate_patient_context_paths.py <hl7.fhir.r4.core 4.0.1 package directory> <output .kt>
 """
@@ -68,6 +73,24 @@ def context_path(sd):
     return None
 
 
+def search_parameters(package):
+    """(type, element path) -> search parameter codes whose expression is exactly that path."""
+    codes = {}
+    for name in sorted(os.listdir(package)):
+        if not (name.startswith("SearchParameter-") and name.endswith(".json")):
+            continue
+        with open(os.path.join(package, name)) as f:
+            sp = json.load(f)
+        if sp.get("type") != "reference" or not sp.get("expression"):
+            continue
+        parts = {part.strip() for part in sp["expression"].split("|")}
+        for base in sp["base"]:
+            for part in parts:
+                if part.startswith(base + "."):
+                    codes.setdefault((base, part[len(base) + 1 :]), set()).add(sp["code"])
+    return codes
+
+
 def main(package, output):
     paths = {}
     for sd in resource_definitions(package):
@@ -76,6 +99,12 @@ def main(package, output):
         if path is not None and t != "Patient":
             paths[t] = path
     # The repository's license header, as Spotless writes it.
+    codes = search_parameters(package)
+    params = {}
+    for t, path in paths.items():
+        found = codes.get((t, path), set())
+        if found:
+            params[t] = "patient" if "patient" in found else sorted(found)[0]
     with open(os.path.join(os.path.dirname(__file__), "..", "..", "license-header.txt")) as f:
         header = f.read().replace("$YEAR", "2026")
     lines = [
@@ -89,10 +118,23 @@ def main(package, output):
         "  mapOf(",
     ]
     lines += [f'    "{t}" to "{p}",' for t, p in sorted(paths.items())]
+    lines += [
+        "  )",
+        "",
+        "/**",
+        " * The search parameter on the element of [R4_PATIENT_CONTEXT_PATHS], for the types that have one: its",
+        " * expression is that element alone, with no `resolve()`.",
+        " */",
+        "internal val R4_PATIENT_SEARCH_PARAMETERS: Map<String, String> =",
+        "  mapOf(",
+    ]
+    lines += [f'    "{t}" to "{p}",' for t, p in sorted(params.items())]
     lines += ["  )", ""]
     with open(output, "w") as f:
         f.write("\n".join(lines))
-    print(f"{len(paths)} resource types", file=sys.stderr)
+    print(f"{len(paths)} resource types, {len(params)} with a search parameter", file=sys.stderr)
+    for t in sorted(set(paths) - set(params)):
+        print(f"  no search parameter: {t}.{paths[t]}", file=sys.stderr)
 
 
 if __name__ == "__main__":

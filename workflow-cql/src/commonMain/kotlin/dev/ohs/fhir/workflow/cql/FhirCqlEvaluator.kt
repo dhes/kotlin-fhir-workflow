@@ -116,9 +116,13 @@ class FhirCqlEvaluator(
     compilerOptions,
   )
 
+  /** Libraries made for CQL expressions that are not a definition's name. */
+  val inlineLibraries = InlineCqlLibraries()
+
   val libraryManager =
     LibraryManager(modelManager, compilerOptions, lazyUcumService = ucumService).apply {
       librarySourceLoader.registerProvider(librarySourceProvider)
+      librarySourceLoader.registerProvider(inlineLibraries)
     }
 
   val modelResolver: ModelResolver = modelResolverFactory(modelManager)
