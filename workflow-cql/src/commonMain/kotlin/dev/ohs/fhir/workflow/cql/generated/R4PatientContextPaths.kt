@@ -1,0 +1,93 @@
+/*
+ * Copyright 2026 Open Health Stack Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package dev.ohs.fhir.workflow.cql.generated
+
+// Generated from hl7.fhir.r4.core 4.0.1 by workflow-cql/tools/generate_patient_context_paths.py.
+
+/** The element that links each FHIR R4 resource type to its patient. */
+internal val R4_PATIENT_CONTEXT_PATHS: Map<String, String> =
+  mapOf(
+    "Account" to "subject",
+    "AdverseEvent" to "subject",
+    "AllergyIntolerance" to "patient",
+    "Appointment" to "participant.actor",
+    "AppointmentResponse" to "actor",
+    "AuditEvent" to "agent.who",
+    "Basic" to "author",
+    "BiologicallyDerivedProduct" to "collection.source",
+    "BodyStructure" to "patient",
+    "CarePlan" to "subject",
+    "CareTeam" to "subject",
+    "ChargeItem" to "subject",
+    "Claim" to "patient",
+    "ClaimResponse" to "patient",
+    "ClinicalImpression" to "subject",
+    "Communication" to "subject",
+    "CommunicationRequest" to "subject",
+    "Composition" to "author",
+    "Condition" to "subject",
+    "Consent" to "patient",
+    "Contract" to "author",
+    "Coverage" to "beneficiary",
+    "CoverageEligibilityRequest" to "patient",
+    "CoverageEligibilityResponse" to "patient",
+    "DetectedIssue" to "patient",
+    "Device" to "patient",
+    "DeviceRequest" to "subject",
+    "DeviceUseStatement" to "subject",
+    "DiagnosticReport" to "subject",
+    "DocumentManifest" to "subject",
+    "DocumentReference" to "subject",
+    "Encounter" to "subject",
+    "EnrollmentRequest" to "candidate",
+    "EpisodeOfCare" to "patient",
+    "ExplanationOfBenefit" to "patient",
+    "FamilyMemberHistory" to "patient",
+    "Flag" to "subject",
+    "Goal" to "subject",
+    "Group" to "member.entity",
+    "GuidanceResponse" to "subject",
+    "ImagingStudy" to "subject",
+    "Immunization" to "patient",
+    "ImmunizationEvaluation" to "patient",
+    "ImmunizationRecommendation" to "patient",
+    "Invoice" to "subject",
+    "List" to "subject",
+    "MeasureReport" to "subject",
+    "Media" to "subject",
+    "MedicationAdministration" to "subject",
+    "MedicationDispense" to "subject",
+    "MedicationRequest" to "subject",
+    "MedicationStatement" to "subject",
+    "MolecularSequence" to "patient",
+    "NutritionOrder" to "patient",
+    "Observation" to "subject",
+    "Person" to "link.target",
+    "Procedure" to "subject",
+    "Provenance" to "agent.who",
+    "QuestionnaireResponse" to "subject",
+    "RelatedPerson" to "patient",
+    "RequestGroup" to "subject",
+    "ResearchSubject" to "individual",
+    "RiskAssessment" to "subject",
+    "Schedule" to "actor",
+    "ServiceRequest" to "subject",
+    "Specimen" to "subject",
+    "SupplyDelivery" to "patient",
+    "SupplyRequest" to "requester",
+    "Task" to "for",
+    "VisionPrescription" to "patient",
+  )
