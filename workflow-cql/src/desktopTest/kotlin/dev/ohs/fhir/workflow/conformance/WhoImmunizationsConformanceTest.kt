@@ -27,12 +27,8 @@ import dev.ohs.fhir.workflow.cql.CqlExpressionEvaluator
 import dev.ohs.fhir.workflow.cql.EmptyWorkflowRepository
 import dev.ohs.fhir.workflow.cql.FhirCqlEvaluator
 import dev.ohs.fhir.workflow.cql.InMemoryTerminologyProvider
-import dev.ohs.fhir.workflow.cql.InlineCqlLibraries
-import dev.ohs.fhir.workflow.cql.KotlinFhirToCql
 import dev.ohs.fhir.workflow.expression.ExpressionEvaluatorRouter
 import java.io.File
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,7 +43,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.opencds.cqf.cql.engine.runtime.Date
-import org.opencds.cqf.cql.engine.runtime.TemporalHelper
 
 /**
  * Applies the PlanDefinition of each of WHO's immunization test cases to its patient and compares
@@ -145,16 +140,13 @@ class WhoImmunizationsConformanceTest {
         }
         .toMap() + ("FHIRHelpers" to resource("org/hl7/fhir/FHIRHelpers-4.0.1.cql"))
 
-    private val inlineLibraries = InlineCqlLibraries()
-
     /** One evaluator for every test case, so that each library is compiled once. */
     private val cqlEvaluator =
       FhirCqlEvaluator(
-          { name: String -> cqlSources[name] },
-          resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml"),
-          InMemoryTerminologyProvider(packageJson("ValueSet-").map { decode(it) as ValueSet }),
-        )
-        .apply { libraryManager.librarySourceLoader.registerProvider(inlineLibraries) }
+        { name: String -> cqlSources[name] },
+        resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml"),
+        InMemoryTerminologyProvider(packageJson("ValueSet-").map { decode(it) as ValueSet }),
+      )
 
     suspend fun counts(definitions: () -> Map<String, Resource>): Map<String, Int> {
       val resolved = definitions()
@@ -193,27 +185,12 @@ class WhoImmunizationsConformanceTest {
         plan.library.firstOrNull()?.value?.let { libraryNames[it] }
           ?: return "PlanDefinition library not in the package"
       val today = testCase.today
-      val evaluationDateTime =
-        ZonedDateTime.of(
-          today.year,
-          today.monthNumber,
-          today.dayOfMonth,
-          12,
-          0,
-          0,
-          0,
-          ZoneId.systemDefault(),
-        )
-      val converter = KotlinFhirToCql(TemporalHelper.zoneToOffset(evaluationDateTime.offset))
       val cql =
         CqlExpressionEvaluator(
           cqlEvaluator,
-          inlineLibraries,
           library,
-          testCase.patient,
-          resources.map { converter.convert(it) },
+          { _, _ -> resources.filter { it !== patient } },
           mapOf("Today" to Date(today.year, today.monthNumber, today.dayOfMonth)),
-          evaluationDateTime,
         )
       val carePlan =
         try {
