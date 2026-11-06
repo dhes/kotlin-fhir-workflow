@@ -85,7 +85,7 @@ class CqlExpressionEvaluator(
 
   private val retrievedTypes: Set<String> by lazy { retrievedTypes(library, mutableSetOf()) }
 
-  private var last: PatientEvaluation? = null
+  private var last: PatientResources? = null
 
   /**
    * Gives the value of the library definition that [expression] names, or else of [expression]
@@ -99,7 +99,7 @@ class CqlExpressionEvaluator(
       (expression as? ProtocolExpression.Elm)?.elmJson
         ?: return EvaluationResult.Failure("Not CQL: $expression")
     return try {
-      val patient = patientEvaluation(context)
+      val patient = patientResources(context)
       val value =
         if (text in patient.definitions) {
           patient.definitions[text]
@@ -119,7 +119,7 @@ class CqlExpressionEvaluator(
   }
 
   /** The patient's data for [context], read on the first call with that [EvaluationContext]. */
-  private suspend fun patientEvaluation(context: EvaluationContext): PatientEvaluation {
+  private suspend fun patientResources(context: EvaluationContext): PatientResources {
     last
       ?.takeIf { it.context === context }
       ?.let {
@@ -130,7 +130,7 @@ class CqlExpressionEvaluator(
     val dateTime = evaluationDateTime(context.today)
     val converter = KotlinFhirToCql(TemporalHelper.zoneToOffset(dateTime.offset))
     val resources = listOf(patient) + patientData(patientId, retrievedTypes - "Patient")
-    return PatientEvaluation(context, patientId, resources.map(converter::convert), dateTime).also {
+    return PatientResources(context, patientId, resources.map(converter::convert), dateTime).also {
       last = it
     }
   }
@@ -147,7 +147,7 @@ class CqlExpressionEvaluator(
     return types
   }
 
-  private inner class PatientEvaluation(
+  private inner class PatientResources(
     val context: EvaluationContext,
     private val patientId: String,
     private val resources: List<ClassInstance>,

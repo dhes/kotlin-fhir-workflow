@@ -21,7 +21,7 @@ import dev.ohs.fhir.model.r4.FhirDate
 import dev.ohs.fhir.model.r4.FhirDateTime
 import dev.ohs.fhir.model.r4.FhirDecimal
 import dev.ohs.fhir.model.r4.Resource
-import dev.ohs.fhir.workflow.cql.generated.structureOf
+import dev.ohs.fhir.workflow.cql.generated.classElementsOf
 import kotlinx.datetime.LocalTime
 import org.cqframework.cql.shared.BigDecimal
 import org.cqframework.cql.shared.QName
@@ -45,10 +45,10 @@ fun fhirType(name: String) = QName(FHIR_MODEL_URI, name, FHIR_MODEL_ID)
  * One element of a model-info type: its name, its declared model-info type, and its kotlin-fhir
  * value.
  */
-internal class Slot(val name: String, val declared: String?, val value: Any?)
+internal class ClassElement(val name: String, val declared: String?, val value: Any?)
 
 /** The model-info type name of a kotlin-fhir value and its elements. */
-internal class Structure(val typeName: String, val slots: List<Slot>)
+internal class ClassElements(val typeName: String, val elements: List<ClassElement>)
 
 /**
  * Converts kotlin-fhir R4 resources to values of cqframework's CQL engine whose types and elements
@@ -96,18 +96,18 @@ class KotlinFhirToCql(private val defaultOffsetHours: BigDecimal) {
 
       is FhirDecimal -> CqlDecimal(BigDecimal(value.toString()))
 
-      else -> choiceValue(value)?.let { convert(null, it) } ?: structure(value)
+      else -> choiceValue(value)?.let { convert(null, it) } ?: classInstance(value)
     }
 
-  private fun structure(value: Any): ClassInstance {
-    val structure =
-      structureOf(value)
+  private fun classInstance(value: Any): ClassInstance {
+    val classElements =
+      classElementsOf(value)
         ?: error("No FHIR model-info type for kotlin-fhir class ${value::class.simpleName}")
     val elements = mutableMapOf<String, Value?>()
-    for (slot in structure.slots) {
-      elements[slot.name] = convert(slot.declared, slot.value)
+    for (element in classElements.elements) {
+      elements[element.name] = convert(element.declared, element.value)
     }
-    return ClassInstance(fhirType(structure.typeName), elements)
+    return ClassInstance(fhirType(classElements.typeName), elements)
   }
 
   /** A Kotlin value held directly by kotlin-fhir where the model info declares a FHIR primitive. */
