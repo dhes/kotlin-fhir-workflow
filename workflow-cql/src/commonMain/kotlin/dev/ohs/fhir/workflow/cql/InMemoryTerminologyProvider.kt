@@ -23,10 +23,9 @@ import org.opencds.cqf.cql.engine.terminology.TerminologyProvider
 import org.opencds.cqf.cql.engine.terminology.ValueSetInfo
 
 /**
- * A [TerminologyProvider] over kotlin-fhir ValueSet and CodeSystem resources. A value set's codes
- * are its expansion, or, when it has none, the concepts and value sets its compose includes; codes
- * with no system or no code are left out, and the rest sorted by code, as in clinical-reasoning's
- * `RepositoryTerminologyProvider`.
+ * A [TerminologyProvider] over kotlin-fhir ValueSet and CodeSystem resources that takes a value
+ * set's codes from its expansion, or else from its compose, as clinical-reasoning's
+ * `RepositoryTerminologyProvider` does.
  *
  * @param codeSystems the code systems [lookup] answers from; a code system not among them is
  *   answered as clinical-reasoning answers every code system, by the code's system and version
@@ -157,6 +156,7 @@ class InMemoryTerminologyProvider(
           }
         }
       }
+    // As clinical-reasoning does: codes with no system or no code are left out, the rest sorted.
     return codes.filter { it.code != null && it.system != null }.sortedBy { it.code }
   }
 

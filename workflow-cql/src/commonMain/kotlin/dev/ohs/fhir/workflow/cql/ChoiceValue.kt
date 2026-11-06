@@ -16,7 +16,7 @@
 package dev.ohs.fhir.workflow.cql
 
 /**
- * The value held by a variant of a kotlin-fhir choice type, such as `Patient.Deceased.Boolean`;
+ * The value held by a variant of a kotlin-fhir choice type, such as `Patient.Deceased.Boolean`, or
  * null for any other value.
  */
 internal expect fun choiceValue(value: Any): Any?
