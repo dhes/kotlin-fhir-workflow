@@ -86,7 +86,7 @@ class CqlExpressionEvaluator(
 
   private val retrievedTypes = mutableMapOf<String, Set<String>>()
 
-  private var last: PatientEvaluation? = null
+  private var last: PatientResources? = null
 
   /**
    * Gives the value of the library definition that [expression] names, or else of [expression]
@@ -105,7 +105,7 @@ class CqlExpressionEvaluator(
     val library =
       libraryName(canonical) ?: return EvaluationResult.Failure("No library named for $canonical")
     return try {
-      val patient = patientEvaluation(context)
+      val patient = patientResources(context)
       patient.read(retrievedTypes(library))
       val definitions = patient.definitions(library)
       val value =
@@ -127,14 +127,14 @@ class CqlExpressionEvaluator(
   }
 
   /** The patient's evaluation for [context], begun on the first call with that context. */
-  private fun patientEvaluation(context: EvaluationContext): PatientEvaluation {
+  private fun patientResources(context: EvaluationContext): PatientResources {
     last
       ?.takeIf { it.context === context }
       ?.let {
         return it
       }
     val patient = context.subject as? Patient ?: error("The subject is not a Patient")
-    return PatientEvaluation(context, patient).also { last = it }
+    return PatientResources(context, patient).also { last = it }
   }
 
   /** The FHIR types that [library] and the libraries it includes, directly or not, retrieve. */
@@ -152,7 +152,7 @@ class CqlExpressionEvaluator(
     return types
   }
 
-  private inner class PatientEvaluation(
+  private inner class PatientResources(
     val context: EvaluationContext,
     private val patient: Patient,
   ) {
