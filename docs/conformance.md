@@ -94,9 +94,9 @@ Routing by `Expression.language` is in `PlanDefinitionProcessor.kt`; evaluation 
 | Language                   | Specification                                                                    | Status | Notes                                                                                              |
 |:---------------------------|:---------------------------------------------------------------------------------|:-------|:---------------------------------------------------------------------------------------------------|
 | `text/fhirpath`            | [Expression](https://hl7.org/fhir/R4/metadatatypes.html#Expression)              | ✅      | Evaluated with kotlin-fhirpath.                                                                    |
-| `text/cql`                 | [Expression](https://hl7.org/fhir/R4/metadatatypes.html#Expression)              | ❌      | Routed to `ElmExpressionEvaluator`, which throws `NotImplementedError`.                            |
-| `text/cql-identifier`      | [ExpressionLanguage (R5)](https://hl7.org/fhir/R5/valueset-expression-language.html) | ❌  | Rejected: "Unsupported expression language".                                                       |
-| `text/cql-expression`      | [ExpressionLanguage (R5)](https://hl7.org/fhir/R5/valueset-expression-language.html) | ❌  | Rejected: "Unsupported expression language".                                                       |
+| `text/cql`                 | [Expression](https://hl7.org/fhir/R4/metadatatypes.html#Expression)              | ⚠️     | Evaluated by the [`workflow-cql`](../workflow-cql/README.md) module's evaluator when it is the router's `elm` evaluator; the default, `ElmExpressionEvaluator`, throws `NotImplementedError`. |
+| `text/cql-identifier`      | [ExpressionLanguage (R5)](https://hl7.org/fhir/R5/valueset-expression-language.html) | ⚠️  | As `text/cql`, with the `library` of the PlanDefinition or ActivityDefinition that holds it.       |
+| `text/cql-expression`      | [ExpressionLanguage (R5)](https://hl7.org/fhir/R5/valueset-expression-language.html) | ⚠️  | As `text/cql-identifier`.                                                                          |
 | `application/x-fhir-query` | [Expression](https://hl7.org/fhir/R4/metadatatypes.html#Expression)              | ❌      | Rejected: "Unsupported expression language".                                                       |
 
 ## Platform support
@@ -104,9 +104,10 @@ Routing by `Expression.language` is in `PlanDefinitionProcessor.kt`; evaluation 
 | Feature                     | Android | Desktop (JVM) | iOS | wasmJs | Notes                                                    |
 |:----------------------------|:--------|:--------------|:----|:-------|:---------------------------------------------------------|
 | `PlanDefinition/$apply` with FHIRPath | ✅ | ✅       | ✅   | ✅      |                                                          |
+| `PlanDefinition/$apply` with CQL (`workflow-cql`) | ⚠️ | ✅ | ❌ | ❌ | Android: builds, not yet run on a device. iOS: cqframework publishes no Kotlin/Native artifacts. wasmJs: not yet. |
 | Tests executed in CI        |         | ✅             | ✅   | ✅      | CI runs desktop, wasmJs and iOS simulator tests.         |
 
-<!-- TODO: confirm the Android column (CI runs the demo's Android unit tests, not the library's); add a CQL row. -->
+<!-- TODO: confirm the Android column (CI runs the demo's Android unit tests, not the library's). -->
 
 ## Test conformance
 
@@ -121,9 +122,12 @@ the package `smart.who.int.immunizations` 1.0.0 from packages.fhir.org, which ho
 PlanDefinitions.
 
 [`WhoImmunizationsConformanceTest`](../workflow-cql/src/desktopTest/kotlin/dev/ohs/fhir/workflow/conformance/WhoImmunizationsConformanceTest.kt)
-runs them on the JVM (desktop). WHO's files are not in this repository; the test reads them from
-the paths in `WHO_IMMUNIZATIONS_FEATURES` and `WHO_IMMUNIZATIONS_PACKAGE`, and does nothing when
-those are not set:
+runs them on the JVM (desktop), with WHO's PlanDefinitions as published. Their logic is in CQL, so
+the test evaluates it with the [`workflow-cql`](../workflow-cql/README.md) module's evaluator
+(cqframework's CQL engine, `org.cqframework` 5.5.0), over the package's libraries and value sets.
+WHO's files are not in this repository; the test reads them from the paths in
+`WHO_IMMUNIZATIONS_FEATURES` and `WHO_IMMUNIZATIONS_PACKAGE`, and does nothing when those are not
+set:
 
 ```shell
 WHO=<an empty directory, as an absolute path>
@@ -135,27 +139,15 @@ WHO_IMMUNIZATIONS_PACKAGE="$WHO/package/package" \
   ./gradlew :workflow-cql:desktopTest --tests '*WhoImmunizationsConformanceTest*' --rerun
 ```
 
-| Test cases                                   | Count | Root cause     | Tracking issue / PR | Note                                                                                                                                  |
-|:---------------------------------------------|------:|:---------------|:--------------------|:--------------------------------------------------------------------------------------------------------------------------------------|
-| All others                                   | 1,020 | Implementation |                     | Every PlanDefinition's applicability conditions are `text/cql-identifier`, which is rejected (see [Expression languages](#expression-languages)). |
-| `IMMZD5DTTyphoidContraindications/Typhoid41.1` |     1 | Test           |                     | `tests-Typhoid41.1-bundle.json` has a MedicationRequest without `medication[x]`, which R4 requires, so kotlin-fhir does not decode it. |
+These results include the fix for the dynamicValue paths of
+[#9](https://github.com/ohs-foundation/kotlin-fhir-workflow/issues/9); without it, the requests of
+most test cases do not decode.
+
+| Test cases                                   | Count | Root cause      | Tracking issue / PR | Note                                                                                                                                  |
+|:---------------------------------------------|------:|:----------------|:--------------------|:--------------------------------------------------------------------------------------------------------------------------------------|
+| Pass                                         | 1,004 |                 |                     |                                                                                                                                       |
+| `IMMZD18SDTPPregnancyStartingWith3Doses/` `DTP69.3`, `DTP70.3`; `IMMZD2DTDTPDelayedOrInterruptedSeries/` `DTP39.3`, `DTP41.3`, `DTP44.4`; `IMMZD2DTDTPOnTimeStart/` `DTP15.3`, `DTP17.3`, `DTP23.4`; `IMMZD18SMeaslesLowTransmission/` `Measles22.1`, `Measles23.3`, `Measles24.3`; `IMMZD18SPneumococcal2DosesWithBoosterDose/` `Pneumococcal14.4`, `21.4`, `22.4`, `24.2`; `IMMZD18SPneumococcal3Doses/` `Pneumococcal46.3` | 16 | Not established |  | The number of contained resources differs from WHO's. cqframework/clinical-reasoning's `PlanDefinitionProcessor` (4.13.0) gives the same number. |
+| `IMMZD5DTTyphoidContraindications/Typhoid41.1` |     1 | Test            |                     | `tests-Typhoid41.1-bundle.json` has a MedicationRequest without `medication[x]`, which R4 requires, so kotlin-fhir does not decode it. |
 
 The root cause column says whether a test case fails because of this library (Implementation) or
 because of the test case itself (Test).
-
-### With CQL
-
-WHO's PlanDefinitions express their logic in CQL. The tests evaluate it with the `workflow-cql`
-module's evaluator (cqframework's CQL engine, `org.cqframework` 5.5.0), plugged into `ExpressionEvaluatorRouter` in
-place of `ElmExpressionEvaluator`, over the package's libraries and value sets. A second test,
-`planDefinitionApplyWithCqlLanguage`, gives WHO's `text/cql-identifier` and `text/cql-expression`
-expressions as `text/cql` before applying them, to show what follows once those languages are
-routed:
-
-| Test cases                                   | Count | Root cause      | Tracking issue / PR                                                       | Note                                                                                                                  |
-|:---------------------------------------------|------:|:----------------|:--------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------|
-| Pass                                         |    70 |                 |                                                                           |                                                                                                                       |
-| dynamicValue path `category.coding`          |   721 | Implementation  | [#9](https://github.com/ohs-foundation/kotlin-fhir-workflow/issues/9)     | The value is written as an object where `category` is a list, and the request does not decode.                        |
-| dynamicValue path `medication`               |   226 | Implementation  | [#9](https://github.com/ohs-foundation/kotlin-fhir-workflow/issues/9)     | `medication` is written as is, where the request expects the choice element `medicationCodeableConcept`.              |
-| `IMMZD18SPneumococcal2DosesWithBoosterDose/` `Pneumococcal14.4`, `21.4`, `22.4` | 3 | Not established |       | One contained resource where WHO expects two.                                                                         |
-| `IMMZD5DTTyphoidContraindications/Typhoid41.1` |     1 | Test            |                                                                           | As above.                                                                                                             |
