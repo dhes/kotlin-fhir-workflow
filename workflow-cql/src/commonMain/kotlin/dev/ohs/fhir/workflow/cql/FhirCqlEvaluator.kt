@@ -38,8 +38,8 @@ import org.opencds.cqf.cql.engine.terminology.TerminologyProvider
 import org.opencds.cqf.cql.engine.util.ZonedDateTime
 
 /**
- * Loads CQL libraries, as ELM or compiled from CQL source against the FHIR 4.0.1 model info
- * supplied by the caller, and evaluates them in Patient context over resources the caller supplies.
+ * Compiles or loads CQL libraries against the FHIR 4.0.1 model info and evaluates them in Patient
+ * context over resources the caller supplies.
  *
  * @param librarySourceProvider serves each library's ELM or CQL source, FHIRHelpers included;
  *   cqframework uses the ELM only when it was compiled by the same cql-to-elm version with the same
@@ -164,7 +164,7 @@ class FhirCqlEvaluator(
   }
 
   companion object {
-    /** The compiler options, plus [extra]. */
+    /** The CQL compiler options this evaluator uses by default, plus [extra]. */
     fun compilerOptions(vararg extra: CqlCompilerOptions.Options) =
       CqlCompilerOptions(
         CqlCompilerException.ErrorSeverity.Info,

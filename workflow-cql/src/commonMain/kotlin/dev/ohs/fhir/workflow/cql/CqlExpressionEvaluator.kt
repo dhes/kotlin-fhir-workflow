@@ -47,20 +47,8 @@ import org.opencds.cqf.cql.engine.runtime.TemporalHelper
 import org.opencds.cqf.cql.engine.runtime.Value
 
 /**
- * Evaluates CQL behind kotlin-fhir-workflow's [ExpressionEvaluator], for the patient that is each
- * call's subject.
- *
- * kotlin-fhir-workflow passes a CQL expression as [ProtocolExpression.Elm] with its text and the
- * canonical URLs of its libraries; the first library is used, named by [libraryName]. A text that
- * names a definition of that library gives the definition's value; any other text is evaluated as a
- * CQL expression in a library that includes it under its own name. CQL's evaluation date-time is
- * noon on the context's `today`, in the system time zone.
- *
- * The patient's resources of the types each library and the libraries it includes retrieve are read
- * with [patientData], once for each type and [EvaluationContext], so once for each `$apply`. Values
- * are converted to the types kotlin-fhir-workflow's write-back takes: a CQL String to a Kotlin
- * string, a Code to a [Coding], a Concept to a [CodeableConcept], and a FHIR primitive (such as the
- * `id` of a resource) to its value.
+ * Evaluates CQL expressions for kotlin-fhir-workflow's `$apply`, each over the first library it
+ * comes with, for the patient that is each call's subject.
  *
  * @param patientData the resources of the given types that belong to the patient with the given id
  * @param parameters values for the libraries' parameters
@@ -77,8 +65,8 @@ class CqlExpressionEvaluator(
 ) : ExpressionEvaluator {
 
   /**
-   * Reads the patient's resources from [repository], by the search parameter on the element that
-   * links each type to its patient; types with no such search parameter are not read.
+   * Reads the patient's resources from [repository], searching each type by the search parameter on
+   * the element that links it to its patient, and not reading a type that has none.
    */
   constructor(
     evaluator: FhirCqlEvaluator,
@@ -100,6 +88,10 @@ class CqlExpressionEvaluator(
 
   private var last: PatientEvaluation? = null
 
+  /**
+   * Gives the value of the library definition that [expression] names, or else of [expression]
+   * evaluated as CQL, for the patient read once for each [context].
+   */
   override suspend fun evaluate(
     expression: ProtocolExpression,
     context: EvaluationContext,
@@ -128,7 +120,8 @@ class CqlExpressionEvaluator(
         }
       result(value)
     } catch (e: Throwable) {
-      // Throwable, not Exception: on Wasm the engine's Split throws NotImplementedError.
+      // Throwable, not Exception: on Wasm, cqframework's CQL engine throws NotImplementedError for
+      // Split.
       EvaluationResult.Failure("${e::class.simpleName}: ${e.message}")
     }
   }
@@ -204,6 +197,9 @@ class CqlExpressionEvaluator(
       else -> EvaluationResult.Values(listOf(workflowValue(value)))
     }
 
+  /**
+   * The value as the type kotlin-fhir-workflow's write-back takes, such as a [Coding] for a Code.
+   */
   private fun workflowValue(value: Value): Any =
     when (value) {
       is CqlString -> value.value
@@ -246,7 +242,7 @@ class CqlExpressionEvaluator(
 }
 
 /**
- * Serves one library per CQL expression, each defining [DEFINITION] as the expression, in Patient
+ * Serves one library per CQL expression, each defining [DEFINITION] as the expression in Patient
  * context, with FHIRHelpers and the given library included.
  */
 class InlineCqlLibraries : LibrarySourceProvider {

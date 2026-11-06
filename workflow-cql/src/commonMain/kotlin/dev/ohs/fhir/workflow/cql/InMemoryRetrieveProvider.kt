@@ -117,7 +117,7 @@ class InMemoryRetrieveProvider(
    * Whether the date of [resource] lies in [dateRange], as the `where` clause the compiler's date
    * range optimization removed would decide: `In` for a point in time, `IncludedIn` for a Period or
    * for the interval between [dateLowPath] and [dateHighPath], each converted as FHIRHelpers 4.0.1
-   * converts it. Null counts as false.
+   * converts it, with null counting as false.
    */
   private fun inDateRange(
     resource: ClassInstance,
