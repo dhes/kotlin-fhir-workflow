@@ -27,10 +27,8 @@ import org.opencds.cqf.cql.engine.runtime.Value
 import org.opencds.cqf.cql.engine.runtime.anyTypeName
 
 /**
- * A [ModelResolver] for FHIR R4 values that follow the FHIR 4.0.1 model info, such as those made by
- * [KotlinFhirToCql]. It answers type questions from the model info itself, where cqframework's
- * HAPI-based `R4FhirModelResolver` maps type names to HAPI's Java classes; it uses no kotlin-fhir
- * classes.
+ * A [ModelResolver] for values made by [KotlinFhirToCql] that answers from the FHIR 4.0.1 model
+ * info, where cqframework's HAPI-based `R4FhirModelResolver` uses HAPI's Java classes.
  */
 class KotlinFhirModelResolver(private val model: Model) : ModelResolver {
 

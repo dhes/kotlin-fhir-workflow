@@ -51,8 +51,8 @@ internal class Slot(val name: String, val declared: String?, val value: Any?)
 internal class Structure(val typeName: String, val slots: List<Slot>)
 
 /**
- * Converts kotlin-fhir R4 resources to CQL engine values whose types and elements follow the FHIR
- * 4.0.1 model info.
+ * Converts kotlin-fhir R4 resources to values of cqframework's CQL engine whose types and elements
+ * follow the FHIR 4.0.1 model info.
  *
  * @param defaultOffsetHours the UTC offset, in hours, given to a FHIR dateTime that has none
  */
