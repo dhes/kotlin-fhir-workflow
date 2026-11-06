@@ -152,7 +152,9 @@ class FhirCqlEvaluator(
       ),
     )
     val result =
-      CqlEngine(environment)
+      // Each definition's value is kept for the rest of the evaluation, so one that others refer to
+      // is computed once.
+      CqlEngine(environment, mutableSetOf(CqlEngine.Options.EnableExpressionCaching))
         .evaluate {
           library(library) { if (expressions != null) expressions(expressions) }
           contextParameter = "Patient" to patientId
