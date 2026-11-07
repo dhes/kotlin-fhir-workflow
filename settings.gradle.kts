@@ -20,4 +20,6 @@ include(":workflow")
 
 include(":workflow-cql")
 
+include(":workflow-cql-probe")
+
 include(":workflow-demo")
