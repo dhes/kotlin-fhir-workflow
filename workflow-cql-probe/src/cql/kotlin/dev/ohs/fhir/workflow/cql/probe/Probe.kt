@@ -52,10 +52,11 @@ class Probe(private val features: File, private val packageDir: File, private va
     val start = TimeSource.Monotonic.markNow()
     val modelInfo = timed("read model info XML") { resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml") }
     val fhirHelpers = resource("org/hl7/fhir/FHIRHelpers-4.0.1.cql")
+    val definitionJson = timed("read and parse PlanDefinition and ActivityDefinition JSON") {
+      packageJson("PlanDefinition-") + packageJson("ActivityDefinition-")
+    }
     val definitions = timed("decode PlanDefinitions and ActivityDefinitions") {
-      (packageJson("PlanDefinition-") + packageJson("ActivityDefinition-")).associate {
-        it.getValue("url").jsonPrimitive.content to decode(it)
-      }
+      definitionJson.associate { it.getValue("url").jsonPrimitive.content to decode(it) }
     }
     val libraries = timed("read Library resources") { packageJson("Library-") }
     val libraryNames =
@@ -74,6 +75,9 @@ class Probe(private val features: File, private val packageDir: File, private va
         }
         .toMap() + ("FHIRHelpers" to fhirHelpers)
     val valueSets = timed("decode ValueSets") { packageJson("ValueSet-").map { decode(it) as ValueSet } }
+    timed("parse the model info XML alone (parseModelInfoXml, result discarded)") {
+      org.hl7.elm_modelinfo.r1.serializing.parseModelInfoXml(modelInfo)
+    }
     val evaluator = timed("create FhirCqlEvaluator (parses the model info)") {
       FhirCqlEvaluator({ name: String -> cqlSources[name] }, modelInfo, InMemoryTerminologyProvider(valueSets))
     }
