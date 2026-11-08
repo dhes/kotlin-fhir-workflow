@@ -50,7 +50,10 @@ class Probe(private val features: File, private val packageDir: File, private va
 
   fun run() = runBlocking {
     val start = TimeSource.Monotonic.markNow()
-    val modelInfo = timed("read model info XML") { resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml") }
+    val modelInfoFile = File(packageDir.parentFile, "fhir-modelinfo-4.0.1.xml")
+    val modelInfo = timed("read model info XML (${if (modelInfoFile.exists()) "trimmed, from the app's files" else "quick jar"})") {
+      if (modelInfoFile.exists()) modelInfoFile.readText() else resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml")
+    }
     val fhirHelpers = resource("org/hl7/fhir/FHIRHelpers-4.0.1.cql")
     val definitionJson = timed("read and parse PlanDefinition and ActivityDefinition JSON") {
       packageJson("PlanDefinition-") + packageJson("ActivityDefinition-")

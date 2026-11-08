@@ -126,7 +126,7 @@ class WhoImmunizationsConformanceTest {
     private val cqlEvaluator =
       FhirCqlEvaluator(
         { name: String -> cqlSources[name] },
-        resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml"),
+        (System.getenv("FHIR_MODELINFO")?.let { java.io.File(it).readText() } ?: resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml")),
         InMemoryTerminologyProvider(packageJson("ValueSet-").map { decode(it) as ValueSet }),
       )
 

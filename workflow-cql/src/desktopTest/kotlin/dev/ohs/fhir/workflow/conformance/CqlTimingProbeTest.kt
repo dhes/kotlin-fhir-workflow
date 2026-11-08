@@ -60,7 +60,7 @@ class CqlTimingProbeTest {
       }
 
       val modelInfo = timed("read model info XML (3.4 MB)") {
-        resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml")
+        (System.getenv("FHIR_MODELINFO")?.let { java.io.File(it).readText() } ?: resource("org/hl7/fhir/fhir-modelinfo-4.0.1.xml"))
       }
       val fhirHelpers = resource("org/hl7/fhir/FHIRHelpers-4.0.1.cql")
       fun packageJson(prefix: String) =
