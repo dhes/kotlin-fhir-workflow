@@ -1,7 +1,7 @@
 # workflow-cql
 
 CQL for kotlin-fhir-workflow's `PlanDefinition/$apply`: an `ExpressionEvaluator` that evaluates CQL
-over kotlin-fhir R4 resources with cqframework's CQL compiler and engine (`org.cqframework` 5.5.0).
+over kotlin-fhir R4 resources with cqframework's CQL compiler and engine (`org.cqframework` 5.6.1).
 
 It is a separate module so that apps that use only FHIRPath don't take on cqframework. `workflow`
 does not depend on it.
@@ -64,12 +64,12 @@ Two files in `src/commonMain/kotlin/dev/ohs/fhir/workflow/cql/generated/` are ge
 not formatted by Spotless. Regenerate them when kotlin-fhir or cqframework's model info changes.
 
 `R4Structures.kt`, the elements of each kotlin-fhir R4 class in model-info order, from cqframework's
-`fhir-modelinfo-4.0.1.xml` (`org.cqframework:quick` 5.5.0) and the classes of kotlin-fhir
+`fhir-modelinfo-4.0.1.xml` (`org.cqframework:quick` 5.6.1) and the classes of kotlin-fhir
 `fhir-model-r4` 1.0.0-rc03:
 
 ```shell
 DIR=<an empty directory>
-curl -sL -o "$DIR/quick.jar" https://repo1.maven.org/maven2/org/cqframework/quick/5.5.0/quick-5.5.0.jar
+curl -sL -o "$DIR/quick.jar" https://repo1.maven.org/maven2/org/cqframework/quick/5.6.1/quick-5.6.1.jar
 curl -sL -o "$DIR/r4.jar" https://repo1.maven.org/maven2/dev/ohs/fhir/fhir-model-r4/1.0.0-rc03/fhir-model-r4-1.0.0-rc03-sources.jar
 unzip -q "$DIR/quick.jar" org/hl7/fhir/fhir-modelinfo-4.0.1.xml -d "$DIR"
 unzip -q "$DIR/r4.jar" 'commonMain/dev/ohs/fhir/model/r4/*.kt' -d "$DIR"
