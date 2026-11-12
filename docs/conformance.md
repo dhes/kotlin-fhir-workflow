@@ -124,7 +124,7 @@ PlanDefinitions.
 [`WhoImmunizationsConformanceTest`](../workflow-cql/src/desktopTest/kotlin/dev/ohs/fhir/workflow/conformance/WhoImmunizationsConformanceTest.kt)
 runs them on the JVM (desktop), with WHO's PlanDefinitions as published. Their logic is in CQL, so
 the test evaluates it with the [`workflow-cql`](../workflow-cql/README.md) module's evaluator
-(cqframework's CQL engine, `org.cqframework` 5.5.0), over the package's libraries and value sets.
+(cqframework's CQL engine, `org.cqframework` 5.6.1), over the package's libraries and value sets.
 WHO's files are not in this repository; the test reads them from the paths in
 `WHO_IMMUNIZATIONS_FEATURES` and `WHO_IMMUNIZATIONS_PACKAGE`, and does nothing when those are not
 set:
